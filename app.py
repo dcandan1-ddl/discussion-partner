@@ -1,14 +1,16 @@
 """
-Discussion Partner Chatbot - Web Interface
+Discussion Partner Chatbot - Web Interface with Voice Recording
 AI-based DDL for Teaching Disagreement Pragmatics
-Streamlit Version - No Python installation needed for students
+Streamlit Version - Includes voice recording for Activity 3
 """
 
 import streamlit as st
 import openai
 import json
 import datetime
+import io
 from typing import Dict, List, Optional
+from audio_recorder_streamlit import audio_recorder
 
 # ============================================================================
 # PAGE CONFIGURATION
@@ -92,6 +94,13 @@ st.markdown("""
         padding: 1rem;
         border-radius: 8px;
         border-left: 4px solid #2196f3;
+        margin: 1rem 0;
+    }
+    .voice-recording-box {
+        background-color: #fff9c4;
+        padding: 1rem;
+        border-radius: 8px;
+        border-left: 4px solid #fbc02d;
         margin: 1rem 0;
     }
 </style>
@@ -201,523 +210,457 @@ CORPUS_EXAMPLES = {
     ]
 }
 
-CATEGORIZATION_EXAMPLES = [
-    {"id": "A", "text": "I can see their point. It is sometimes annoying. But I don't agree that they should be banned.", "category": "formal"},
-    {"id": "B", "text": "Yeah but there are some disadvantages like er...", "category": "casual"},
-    {"id": "C", "text": "yeah I agree but I still the problem is that...", "category": "casual"},
-    {"id": "D", "text": "I can understand your opinion erm but I was still wondering...", "category": "formal"},
-    {"id": "E", "text": "Well I agree but maybe we can develop more jobs", "category": "casual"},
-    {"id": "F", "text": "I agree with this point but don't you think maybe the fact that times are changing is a good thing?", "category": "formal"},
-    {"id": "G", "text": "Yes but if people are going to live over 100 and they're probably going to retire later...", "category": "casual"},
-    {"id": "H", "text": "I understand his situation but I'm not sure if I should do it", "category": "formal"}
+DEBATE_TOPICS = [
+    {
+        "id": "social_media",
+        "topic": "Social Media",
+        "power": "low",
+        "ai_position": "Social media is helpful",
+        "ai_opening": "Hey! So you think social media is harmful? Yes, I know it can cause some problems, but I think it really helps people stay connected with friends and family.",
+        "corpus_patterns": "low_power"
+    },
+    {
+        "id": "homework",
+        "topic": "Homework",
+        "power": "low",
+        "ai_position": "Homework is necessary",
+        "ai_opening": "Alright, homework debate! Yeah, I understand homework can be boring, but I think it's really important for learning. Don't you think practice helps?",
+        "corpus_patterns": "low_power"
+    }
+]
+
+ROLE_PLAY_SCENARIOS = [
+    {
+        "id": "friend_phone",
+        "title": "Scenario 1: Disagreeing with a friend",
+        "power": "low",
+        "role_student": "You are talking to your friend",
+        "role_ai": "Your friend",
+        "situation": "Your friend thinks using a phone all day is okay. You think it's bad for health.",
+        "ai_opening": "I don't think using my phone all day is bad. It's fun! I can play games and talk to my friends all the time.",
+        "corpus_patterns": "low_power"
+    },
+    {
+        "id": "boss_schedule",
+        "title": "Scenario 2: Negotiating with your boss",
+        "power": "high",
+        "role_student": "You are an employee",
+        "role_ai": "Your boss",
+        "situation": "Your boss says everyone must work late shifts. You have school in the morning and can't stay late.",
+        "ai_opening": "We need more coverage for late shifts. Starting next week, all part-time employees will work until 11 PM. This includes you.",
+        "corpus_patterns": "high_power"
+    }
 ]
 
 # ============================================================================
-# SESSION STATE INITIALIZATION
+# HELPER FUNCTIONS
 # ============================================================================
 
 def init_session_state():
     """Initialize all session state variables"""
-    if 'initialized' not in st.session_state:
-        st.session_state.initialized = True
-        st.session_state.current_activity = None
-        st.session_state.current_state = "welcome"
-        st.session_state.conversation_log = []
-        st.session_state.autonomy_log = []
-        st.session_state.scaffolding_log = []
-        st.session_state.categorization_index = 0
-        st.session_state.scenario_turn = 0
+    if 'api_key' not in st.session_state:
+        st.session_state.api_key = None
+    if 'student_name' not in st.session_state:
+        st.session_state.student_name = None
+    if 'messages' not in st.session_state:
         st.session_state.messages = []
-        st.session_state.student_name = ""
-        st.session_state.api_key = ""
+    if 'interaction_logs' not in st.session_state:
+        st.session_state.interaction_logs = []
+    if 'autonomy_log' not in st.session_state:
+        st.session_state.autonomy_log = []
+    if 'current_state' not in st.session_state:
+        st.session_state.current_state = "welcome"
+    if 'current_activity' not in st.session_state:
+        st.session_state.current_activity = None
+    if 'current_dialogue' not in st.session_state:
+        st.session_state.current_dialogue = None
+    if 'current_debate' not in st.session_state:
+        st.session_state.current_debate = None
+    if 'debate_turn' not in st.session_state:
+        st.session_state.debate_turn = 1
+    if 'current_scenario' not in st.session_state:
+        st.session_state.current_scenario = None
+    if 'temp_show_examples' not in st.session_state:
+        st.session_state.temp_show_examples = False
+    if 'last_audio_bytes' not in st.session_state:
+        st.session_state.last_audio_bytes = None
+    if 'transcribed_text' not in st.session_state:
+        st.session_state.transcribed_text = ""
 
-# ============================================================================
-# LOGGING FUNCTIONS
-# ============================================================================
-
-def log_interaction(role: str, content: str, metadata: Optional[Dict] = None):
-    """Log all interactions for research purposes"""
-    entry = {
+def log_interaction(role: str, content: str):
+    """Log an interaction"""
+    st.session_state.interaction_logs.append({
         "timestamp": datetime.datetime.now().isoformat(),
-        "student_name": st.session_state.student_name,
-        "role": role,
-        "content": content,
         "activity": st.session_state.current_activity,
-        "state": st.session_state.current_state
-    }
-    if metadata:
-        entry.update(metadata)
-    st.session_state.conversation_log.append(entry)
+        "state": st.session_state.current_state,
+        "role": role,
+        "content": content
+    })
 
-def log_autonomy(request_type: str):
-    """Track learner autonomy requests"""
+def log_autonomy(action: str):
+    """Log autonomous help-seeking behavior"""
     st.session_state.autonomy_log.append({
         "timestamp": datetime.datetime.now().isoformat(),
-        "student_name": st.session_state.student_name,
-        "request": request_type,
-        "activity": st.session_state.current_activity
+        "activity": st.session_state.current_activity,
+        "action": action
     })
 
-def log_scaffolding(trigger: str, examples_shown: List[str]):
-    """Track when scaffolding is provided"""
-    st.session_state.scaffolding_log.append({
-        "timestamp": datetime.datetime.now().isoformat(),
+def save_logs() -> str:
+    """Generate downloadable JSON log"""
+    data = {
         "student_name": st.session_state.student_name,
-        "trigger": trigger,
-        "examples": examples_shown,
-        "activity": st.session_state.current_activity
-    })
-
-def save_logs():
-    """Generate logs JSON"""
-    logs = {
-        "student_name": st.session_state.student_name,
-        "conversation_log": st.session_state.conversation_log,
-        "autonomy_log": st.session_state.autonomy_log,
-        "scaffolding_log": st.session_state.scaffolding_log,
-        "session_date": datetime.datetime.now().isoformat()
+        "session_start": st.session_state.interaction_logs[0]["timestamp"] if st.session_state.interaction_logs else None,
+        "session_end": datetime.datetime.now().isoformat(),
+        "interactions": st.session_state.interaction_logs,
+        "autonomy_events": st.session_state.autonomy_log
     }
-    return json.dumps(logs, indent=2)
+    return json.dumps(data, indent=2)
 
-# ============================================================================
-# GPT FUNCTIONS
-# ============================================================================
-
-def call_gpt(user_message: str, context_messages: List[Dict] = None) -> str:
-    """Call OpenAI API"""
-    if not st.session_state.api_key:
-        return "Error: API key not configured. Please contact your instructor."
-    
-    openai.api_key = st.session_state.api_key
-    
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    
-    if context_messages:
-        messages.extend(context_messages)
-    
-    messages.append({"role": "user", "content": user_message})
-    
+def call_gpt(user_message: str, conversation_history: List[Dict] = None) -> str:
+    """Call GPT API with error handling"""
     try:
+        openai.api_key = st.session_state.api_key
+        
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        
+        if conversation_history:
+            messages.extend(conversation_history)
+        
+        messages.append({"role": "user", "content": user_message})
+        
         response = openai.ChatCompletion.create(
             model=MODEL,
             messages=messages,
             temperature=TEMPERATURE,
             max_tokens=MAX_TOKENS
         )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-# ============================================================================
-# UI DISPLAY FUNCTIONS
-# ============================================================================
-
-def show_dialogue(dialogue_key: str):
-    """Display a dialogue in a nice box"""
-    dialogue = DIALOGUES[dialogue_key]
+        
+        return response.choices[0].message.content.strip()
     
-    st.markdown(f"""
-    <div class="dialogue-box">
-        <h3>{dialogue['title']}</h3>
-        <p><em>{dialogue['context']}</em></p>
-        <hr>
-        {dialogue['dialogue'].replace('**', '<strong>').replace('**', '</strong>')}
-    </div>
-    """, unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"Error calling GPT: {str(e)}")
+        return "I'm having trouble connecting right now. Please try again."
 
-def show_corpus_examples(examples: List[str], title: str = "Examples from the Corpus"):
-    """Display corpus examples"""
+def transcribe_audio(audio_bytes: bytes) -> str:
+    """Transcribe audio using OpenAI Whisper API"""
+    try:
+        openai.api_key = st.session_state.api_key
+        
+        # Create a file-like object from bytes
+        audio_file = io.BytesIO(audio_bytes)
+        audio_file.name = "recording.wav"
+        
+        # Call Whisper API
+        transcript = openai.Audio.transcribe(
+            model="whisper-1",
+            file=audio_file
+        )
+        
+        return transcript["text"]
+    
+    except Exception as e:
+        st.error(f"Error transcribing audio: {str(e)}")
+        return ""
+
+def show_corpus_examples(examples: List[str], title: str = "Here are some examples from real conversations:"):
+    """Display corpus examples in a styled box"""
     st.markdown(f"**{title}**")
-    for i, example in enumerate(examples, 1):
-        st.markdown(f"""
-        <div class="corpus-example">
-            {i}. {example}
-        </div>
-        """, unsafe_allow_html=True)
+    for example in examples:
+        st.markdown(f'<div class="corpus-example">"{example}"</div>', unsafe_allow_html=True)
 
-def show_scenario(text: str):
-    """Display scenario text"""
+def voice_or_text_input(input_label: str, key_prefix: str, height: int = 100):
+    """
+    Display both voice recording and text input options for Activity 3
+    Returns tuple: (input_text, input_method)
+    """
     st.markdown(f"""
-    <div class="scenario-box">
-        {text}
+    <div class="voice-recording-box">
+    <strong>🎤 You can either speak OR type your response:</strong>
     </div>
     """, unsafe_allow_html=True)
+    
+    # Create tabs for voice and text input
+    tab1, tab2 = st.tabs(["🎤 Voice Recording", "⌨️ Text Input"])
+    
+    with tab1:
+        st.info("Click the microphone button below to start recording. Click again to stop.")
+        
+        # Audio recorder
+        audio_bytes = audio_recorder(
+            text="",
+            recording_color="#e74c3c",
+            neutral_color="#1f77b4",
+            icon_size="3x",
+            key=f"audio_{key_prefix}"
+        )
+        
+        transcribed_text = ""
+        
+        if audio_bytes and audio_bytes != st.session_state.last_audio_bytes:
+            st.session_state.last_audio_bytes = audio_bytes
+            
+            with st.spinner("Transcribing your voice..."):
+                transcribed_text = transcribe_audio(audio_bytes)
+                st.session_state.transcribed_text = transcribed_text
+            
+            if transcribed_text:
+                st.success("✅ Recording transcribed!")
+                st.markdown(f"**You said:** {transcribed_text}")
+                return transcribed_text, "voice"
+        
+        # Show previously transcribed text if exists
+        if st.session_state.transcribed_text and not audio_bytes:
+            st.markdown(f"**Last recording:** {st.session_state.transcribed_text}")
+            if st.button("Use this recording", key=f"use_recording_{key_prefix}"):
+                return st.session_state.transcribed_text, "voice"
+    
+    with tab2:
+        text_input = st.text_area(input_label, key=f"text_{key_prefix}", height=height)
+        if text_input:
+            return text_input, "text"
+    
+    return "", "none"
 
 # ============================================================================
-# MAIN CHATBOT LOGIC
+# ACTIVITY PROCESSING FUNCTIONS
 # ============================================================================
 
 def process_welcome():
-    """Handle welcome screen"""
-    st.markdown('<div class="main-header">💬 Discussion Partner</div>', unsafe_allow_html=True)
+    """Display welcome screen"""
+    st.markdown(f'<div class="main-header">💬 Welcome, {st.session_state.student_name}!</div>', unsafe_allow_html=True)
     
     st.markdown("""
     <div class="info-box">
-        <h3>Welcome!</h3>
-        <p>Hi! I'm your Discussion Partner. Today we'll explore how people disagree politely in English.</p>
-        <p>I'll show you <strong>REAL conversations</strong> from the Trinity Lancaster Corpus - these are actual English speakers talking. We'll discover patterns together, then you'll practice with me!</p>
+    <h3>Today you will:</h3>
+    <ol>
+        <li><strong>Discover</strong> how people disagree politely in English</li>
+        <li><strong>Analyze</strong> real conversations from native speakers</li>
+        <li><strong>Practice</strong> disagreeing in different situations</li>
+    </ol>
+    
+    <p>Ready to start? Let's begin with Activity 1!</p>
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("""
-    <div class="success-box">
-        <h4>⚡ You Control This Session!</h4>
-        <ul>
-            <li>Say "Show me that again" anytime to review</li>
-            <li>Say "I need help" if you're stuck</li>
-            <li>Say "Can I see more examples?" to explore further</li>
-            <li>Say "Continue" when you're ready to move on</li>
-        </ul>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    if st.button("✅ Ready to Start!"):
+    if st.button("Start Activity 1"):
+        st.session_state.current_activity = "activity1"
         st.session_state.current_state = "activity1_intro"
+        log_interaction("system", "Started Activity 1")
         st.rerun()
 
 def process_activity1():
-    """Handle Activity 1"""
+    """Process Activity 1: Noticing yes-but constructions"""
+    
     if st.session_state.current_state == "activity1_intro":
-        st.markdown('<div class="activity-header">📚 Activity 1: How do people disagree politely?</div>', unsafe_allow_html=True)
-        
-        st.info("""
-        We're going to look at 2 real conversations. Your job: figure out if people agree or disagree, and how you know!
-        """)
-        
-        if st.button("See Dialogue 1"):
-            st.session_state.current_state = "dialogue1_shown"
-            st.rerun()
-    
-    elif st.session_state.current_state == "dialogue1_shown":
-        st.markdown('<div class="activity-header">📚 Activity 1: Dialogue 1</div>', unsafe_allow_html=True)
-        show_dialogue("mobile_phones")
-        
-        st.markdown("**Questions for you:**")
-        st.markdown("1. Does Tiara agree or disagree with Eden?")
-        st.markdown("2. What specific words tell you this?")
-        
-        user_response = st.text_area("Type your answer:", key="dialogue1_response", height=100)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Submit Answer"):
-                if user_response:
-                    log_interaction("user", user_response)
-                    st.session_state.messages.append({"role": "user", "content": user_response})
-                    st.session_state.current_state = "dialogue1_feedback"
-                    st.rerun()
-        with col2:
-            if st.button("I need help"):
-                log_autonomy("help_request")
-                st.session_state.current_state = "dialogue1_scaffolding"
-                st.rerun()
-    
-    elif st.session_state.current_state == "dialogue1_scaffolding":
-        st.markdown('<div class="activity-header">📚 Activity 1: Let me help you!</div>', unsafe_allow_html=True)
-        show_dialogue("mobile_phones")
-        
-        st.markdown("""
-        Let me show you the dialogue again. This time, look carefully at the EXACT words Tiara uses...
-        
-        Look at these parts:
-        - **"I can see their point"**
-        - **"But I don't agree"**
-        
-        What does Tiara do BEFORE saying "I don't agree"?
-        """)
-        
-        if st.button("I understand now - Continue"):
-            st.session_state.current_state = "dialogue1_transition"
-            st.rerun()
-    
-    elif st.session_state.current_state == "dialogue1_feedback":
-        st.markdown('<div class="activity-header">📚 Activity 1: Great thinking!</div>', unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="success-box">
-        Yes, Tiara disagrees! She does TWO things:
-        <ol>
-            <li>First, she acknowledges: "I can see their point"</li>
-            <li>Then she disagrees: "But I don't agree..."</li>
-        </ol>
-        
-        This is interesting! She doesn't just say "No" or "I disagree." She shows she understands FIRST.
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("Continue to Dialogue 2"):
-            st.session_state.current_state = "dialogue2_shown"
-            st.rerun()
-    
-    elif st.session_state.current_state == "dialogue1_transition":
-        st.success("Great! Let's move to Dialogue 2.")
-        if st.button("See Dialogue 2"):
-            st.session_state.current_state = "dialogue2_shown"
-            st.rerun()
-    
-    elif st.session_state.current_state == "dialogue2_shown":
-        st.markdown('<div class="activity-header">📚 Activity 1: Dialogue 2</div>', unsafe_allow_html=True)
-        
-        st.info("Now let's look at a conversation between FRIENDS. Think about: Will it be the same or different?")
-        
-        show_dialogue("life_expectancy")
-        
-        st.markdown("**Questions:**")
-        st.markdown("1. Do Linda and Semih agree or disagree with each other?")
-        st.markdown("2. How is this SIMILAR to Dialogue 1 (Eden and Tiara)?")
-        st.markdown("3. How is this DIFFERENT from Dialogue 1?")
-        
-        user_response = st.text_area("Type your observations:", key="dialogue2_response", height=150)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Submit Answer", key="submit_d2"):
-                if user_response:
-                    log_interaction("user", user_response)
-                    st.session_state.messages.append({"role": "user", "content": user_response})
-                    st.session_state.current_state = "dialogue2_feedback"
-                    st.rerun()
-        with col2:
-            if st.button("I need help", key="help_d2"):
-                log_autonomy("help_request")
-                st.session_state.current_state = "dialogue2_scaffolding"
-                st.rerun()
-    
-    elif st.session_state.current_state == "dialogue2_scaffolding":
-        st.markdown('<div class="activity-header">📚 Activity 1: Comparing the dialogues</div>', unsafe_allow_html=True)
-        
-        st.markdown("""
-        Let me show you both dialogues side by side:
-        
-        **DIALOGUE 1 (Boss → Employee):**
-        "I can see their point. It is sometimes annoying. But I don't agree that they should be banned."
-        
-        **DIALOGUE 2 (Friend → Friend):**
-        "Well I agree but maybe we can develop more jobs..."
-        "Yes but if people live over 100..."
-        
-        Look at how they START their disagreement. What words do they use?
-        
-        - In Dialogue 1: "I can see..." and "But I don't agree..."
-        - In Dialogue 2: "Well I agree but..." and "Yes but..."
-        
-        Do you see anything shorter or more casual in Dialogue 2?
-        """)
-        
-        if st.button("I see the pattern - Continue"):
-            st.session_state.current_state = "dialogue2_feedback"
-            st.rerun()
-    
-    elif st.session_state.current_state == "dialogue2_feedback":
-        st.markdown('<div class="activity-header">📚 Activity 1: Excellent observation!</div>', unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="success-box">
-        <h4>You've discovered the pattern!</h4>
-        
-        <strong>Dialogue 1 (Boss/Employee): Longer, more careful</strong>
-        <br>→ "I can see their point. It is sometimes annoying. But I don't agree..."
-        
-        <br><br><strong>Dialogue 2 (Friends): Shorter, more casual</strong>
-        <br>→ "Yes but..."
-        <br>→ "Well I agree but..."
-        
-        <p>People disagree differently depending on WHO they're talking to!</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("Continue to Activity 2"):
-            st.session_state.current_activity = "activity2"
-            st.session_state.current_state = "activity2_intro"
-            st.session_state.categorization_index = 0
-            st.rerun()
-
-def process_activity2():
-    """Handle Activity 2"""
-    if st.session_state.current_state == "activity2_intro":
-        st.markdown('<div class="activity-header">🏷️ Activity 2: When do you use each style?</div>', unsafe_allow_html=True)
-        
-        st.info("""
-        You noticed that people disagree differently depending on the situation!
-        
-        Now I'm going to show you 8 REAL examples from the Trinity Lancaster Corpus.
-        
-        **Your task:** Decide if each example is better for:
-        - Talking to FRIEND/FAMILY (more casual)
-        - Talking to TEACHER/BOSS (more formal)
-        
-        I'll show you ONE example at a time.
-        """)
-        
-        if st.button("Start Categorizing"):
-            st.session_state.current_state = "categorization"
-            st.rerun()
-    
-    elif st.session_state.current_state == "categorization":
-        if st.session_state.categorization_index >= len(CATEGORIZATION_EXAMPLES):
-            st.session_state.current_state = "categorization_summary"
-            st.rerun()
-            return
-        
-        example = CATEGORIZATION_EXAMPLES[st.session_state.categorization_index]
-        
-        st.markdown('<div class="activity-header">🏷️ Activity 2: Categorize This Example</div>', unsafe_allow_html=True)
-        
-        st.markdown(f"""
-        <div class="corpus-example">
-        <h4>Example {example['id']}:</h4>
-        "{example['text']}"
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("**Is this better for:**")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("1️⃣ Friend/Family", key=f"cat_1_{example['id']}"):
-                log_interaction("user", f"Example {example['id']}: Friend/Family")
-                st.session_state.categorization_index += 1
-                st.rerun()
-        with col2:
-            if st.button("2️⃣ Teacher/Boss", key=f"cat_2_{example['id']}"):
-                log_interaction("user", f"Example {example['id']}: Teacher/Boss")
-                st.session_state.categorization_index += 1
-                st.rerun()
-        
-        st.markdown(f"**Progress:** {st.session_state.categorization_index + 1}/8 examples")
-    
-    elif st.session_state.current_state == "categorization_summary":
-        st.markdown('<div class="activity-header">🏷️ Activity 2: Summary</div>', unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="success-box">
-        <h3>Great work! You've categorized all 8 examples.</h3>
-        
-        <h4>FRIEND/FAMILY (More casual):</h4>
-        <ul>
-            <li>"Yeah but there are some disadvantages like er..."</li>
-            <li>"yeah I agree but I still the problem is that..."</li>
-            <li>"Well I agree but maybe we can develop more jobs"</li>
-            <li>"Yes but if people are going to live over 100..."</li>
-        </ul>
-        
-        <h4>TEACHER/BOSS (More formal):</h4>
-        <ul>
-            <li>"I can see their point. It is sometimes annoying. But I don't agree..."</li>
-            <li>"I can understand your opinion erm but I was still wondering..."</li>
-            <li>"I agree with this point but don't you think maybe..."</li>
-            <li>"I understand his situation but I'm not sure if I should do it"</li>
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.info("Do you see the patterns? Casual uses 'Yeah but' / 'Yes but', while formal uses 'I understand/see...but'")
-        
-        if st.button("Continue to Activity 3 - Practice Time!"):
-            st.session_state.current_activity = "activity3"
-            st.session_state.current_state = "activity3_intro"
-            st.rerun()
-
-def process_activity3():
-    """Handle Activity 3 - Role Play"""
-    if st.session_state.current_state == "activity3_intro":
-        st.markdown('<div class="activity-header">🎭 Activity 3: Practice Time - Let\'s Debate!</div>', unsafe_allow_html=True)
+        st.markdown('<div class="activity-header">📚 Activity 1: Discovering Disagreement Patterns</div>', unsafe_allow_html=True)
         
         st.markdown("""
         <div class="info-box">
-        Now YOU'LL practice disagreeing with me in two situations:
-        
-        <strong>Scenario 1:</strong> We're siblings arguing about money (casual)
-        <br><strong>Scenario 2:</strong> I'm your boss, you're my employee (formal)
-        
-        <h4>⚠️ IMPORTANT:</h4>
+        <h3>What you'll do:</h3>
+        <p>Look at TWO conversations between people. Your job is to discover:</p>
         <ul>
-            <li>I'll disagree with you too (it's practice!)</li>
-            <li>There's no "right answer" - we're just having conversations</li>
-            <li>I'll show you examples from the corpus to help you</li>
-            <li>You can ask to see examples anytime!</li>
+            <li>How do they disagree?</li>
+            <li>What words do they use?</li>
+            <li>Are the conversations different? How?</li>
         </ul>
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button("Start Scenario 1"):
-            st.session_state.current_state = "scenario1_start"
-            st.session_state.scenario_turn = 0
+        if st.button("Show First Conversation"):
+            st.session_state.current_state = "show_dialogue1"
+            st.session_state.current_dialogue = "mobile_phones"
             st.rerun()
     
-    elif st.session_state.current_state == "scenario1_start":
-        st.markdown('<div class="activity-header">🎭 Scenario 1: Siblings arguing about money</div>', unsafe_allow_html=True)
+    elif st.session_state.current_state == "show_dialogue1":
+        st.markdown('<div class="activity-header">📚 Activity 1: First Conversation</div>', unsafe_allow_html=True)
         
-        show_scenario("""
-        **The Setup:**
-        We're siblings. I believe money is the most important thing in life.
-        You disagree - you think other things are more important.
+        dialogue_data = DIALOGUES["mobile_phones"]
         
-        Let's debate! I'll start:
-        """)
-        
-        st.markdown("""
-        <div class="scenario-box">
-        <strong>Me (your sibling):</strong>
-        <p>"I think money is the MOST important thing in life! You can't be happy without money. If you have money, you can do anything you want, buy anything, go anywhere. Don't you agree?"</p>
+        st.markdown(f"""
+        <div class="dialogue-box">
+        <h4>{dialogue_data['title']}</h4>
+        <p><em>{dialogue_data['context']}</em></p>
+        <hr>
+        {dialogue_data['dialogue'].replace('**', '<strong>').replace('**', '</strong>')}
         </div>
         """, unsafe_allow_html=True)
         
-        st.info("**Your turn!** Disagree with me. Remember: we're siblings, so be natural!")
+        st.markdown("**Questions to think about:**")
+        st.markdown("1. Does Tiara agree or disagree with Eden?")
+        st.markdown("2. What words does Tiara use to disagree?")
+        st.markdown("3. Is Tiara polite or rude?")
         
-        user_response = st.text_area("Type your response:", key="scenario1_turn1", height=100)
+        response = st.text_area("Write your thoughts here:", key="dialogue1_response", height=150)
         
-        if st.button("Send Response"):
-            if user_response:
-                log_interaction("user", user_response)
-                st.session_state.messages.append({"role": "user", "content": user_response})
-                st.session_state.scenario_turn = 1
-                st.session_state.current_state = "scenario1_scaffolding"
-                st.rerun()
+        if st.button("Continue to Second Conversation"):
+            if response:
+                log_interaction("user", f"Activity 1 - Dialogue 1 response: {response}")
+            st.session_state.current_state = "show_dialogue2"
+            st.session_state.current_dialogue = "life_expectancy"
+            st.rerun()
     
-    elif st.session_state.current_state == "scenario1_scaffolding":
-        st.markdown('<div class="activity-header">🎭 Scenario 1: Let me show you some examples!</div>', unsafe_allow_html=True)
+    elif st.session_state.current_state == "show_dialogue2":
+        st.markdown('<div class="activity-header">📚 Activity 1: Second Conversation</div>', unsafe_allow_html=True)
         
-        st.info("Before I respond, let me show you how other people disagreed with their friends and siblings in similar debates.")
+        dialogue_data = DIALOGUES["life_expectancy"]
         
-        examples = CORPUS_EXAMPLES["low_power"][:3]
-        log_scaffolding("turn1_automatic", examples)
-        show_corpus_examples(examples)
+        st.markdown(f"""
+        <div class="dialogue-box">
+        <h4>{dialogue_data['title']}</h4>
+        <p><em>{dialogue_data['context']}</em></p>
+        <hr>
+        {dialogue_data['dialogue'].replace('**', '<strong>').replace('**', '</strong>')}
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("**Questions to think about:**")
+        st.markdown("1. Do Linda and Semih agree or disagree?")
+        st.markdown("2. What words do they use to disagree?")
+        st.markdown("3. How is this conversation different from the first one?")
+        
+        response = st.text_area("Write your thoughts here:", key="dialogue2_response", height=150)
+        
+        if st.button("See What You Discovered"):
+            if response:
+                log_interaction("user", f"Activity 1 - Dialogue 2 response: {response}")
+            st.session_state.current_state = "activity1_summary"
+            st.rerun()
+    
+    elif st.session_state.current_state == "activity1_summary":
+        st.markdown('<div class="activity-header">📚 Activity 1: What Did You Discover?</div>', unsafe_allow_html=True)
         
         st.markdown("""
-        **Notice how they start their disagreement?**
-        - They say "Yeah but..." or "I agree but..."
-        - They acknowledge first, THEN disagree
+        <div class="success-box">
+        <h3>Great observation! Here's what you noticed:</h3>
         
-        Since we're siblings (casual relationship), you might try:
-        - Starting with "Yeah but..."
-        - Or "I agree money is important but..."
+        <p><strong>Both conversations use a similar pattern:</strong></p>
+        <ul>
+            <li>"I can see their point... <strong>But I don't agree</strong>"</li>
+            <li>"<strong>Well I agree but</strong> medicines are progressing..."</li>
+            <li>"<strong>Yes but</strong> if people live over 100..."</li>
+        </ul>
         
-        Want to try your response again, using one of these patterns?
-        """)
+        <p>This is called a <strong>"Yes-But" construction</strong>!</p>
         
-        user_response = st.text_area("Try again (or press Continue to keep your original response):", key="scenario1_reformulate", height=100)
+        <h4>What's happening?</h4>
+        <ol>
+            <li>First, show you understand: "I see..." / "I agree..." / "Yes..."</li>
+            <li>Then add your different opinion: "...but..."</li>
+        </ol>
+        
+        <p>This makes disagreeing <strong>polite and natural</strong> in English!</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("**Did you also notice a difference between the two conversations?**")
+        
+        st.markdown("""
+        <div class="info-box">
+        <ul>
+            <li><strong>Conversation 1 (Boss & Employee):</strong> More formal - "I can see their point, but..."</li>
+            <li><strong>Conversation 2 (Friends):</strong> More casual - "Yeah but..." / "Yes but..."</li>
+        </ul>
+        <p>The relationship matters! With bosses or teachers = more formal. With friends = more casual.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("Ready for Activity 2"):
+            st.session_state.current_activity = "activity2"
+            st.session_state.current_state = "activity2_intro"
+            log_interaction("system", "Completed Activity 1, Started Activity 2")
+            st.rerun()
+
+def process_activity2():
+    """Process Activity 2: Debate practice with friend-level topic"""
+    
+    if st.session_state.current_state == "activity2_intro":
+        st.markdown('<div class="activity-header">💭 Activity 2: Practice Debate with Me!</div>', unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div class="info-box">
+        <h3>Now it's your turn to practice!</h3>
+        
+        <p>We'll have a <strong>friendly debate</strong> about a topic. I'll take one side, you take the other.</p>
+        
+        <p><strong>Your goal:</strong> Disagree with me politely using patterns like:
+        <ul>
+            <li>"Yeah but..."</li>
+            <li>"I agree but..."</li>
+            <li>"Yes but..."</li>
+        </ul>
+        
+        <p>Think of me as your friend! Let's debate casually.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("**Choose a debate topic:**")
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("Send New Response"):
-                if user_response:
-                    log_interaction("user", user_response + " [REFORMULATED]")
-                    st.session_state.messages.append({"role": "user", "content": user_response})
-                    st.session_state.current_state = "scenario1_continue"
-                    st.rerun()
+            if st.button("Social Media 📱"):
+                st.session_state.current_debate = DEBATE_TOPICS[0]
+                st.session_state.current_state = "debate_start"
+                st.rerun()
         with col2:
-            if st.button("Continue with Original"):
-                st.session_state.current_state = "scenario1_continue"
+            if st.button("Homework 📚"):
+                st.session_state.current_debate = DEBATE_TOPICS[1]
+                st.session_state.current_state = "debate_start"
                 st.rerun()
     
-    elif st.session_state.current_state == "scenario1_continue":
-        st.markdown('<div class="activity-header">🎭 Scenario 1: Continuing the debate</div>', unsafe_allow_html=True)
+    elif st.session_state.current_state == "debate_start":
+        topic = st.session_state.current_debate
+        
+        st.markdown('<div class="activity-header">💭 Activity 2: Debate Time!</div>', unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div class="scenario-box">
+        <h3>Topic: {topic['topic']}</h3>
+        <p><strong>My position:</strong> {topic['ai_position']}</p>
+        <p><strong>Your position:</strong> {topic['topic']} is harmful/not necessary</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div class="dialogue-box">
+        <strong>Me (your friend):</strong>
+        <p>{topic['ai_opening']}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        log_interaction("assistant", topic['ai_opening'])
+        
+        st.info("**Your turn!** Disagree with me. Try to use: 'Yeah but...', 'I agree but...', or 'Yes but...'")
+        
+        user_response = st.text_area("Type your response:", key="debate_response1", height=100)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Send Response", key="send_debate1"):
+                if user_response:
+                    log_interaction("user", user_response)
+                    st.session_state.messages.append({"role": "user", "content": user_response})
+                    st.session_state.debate_turn = 2
+                    st.session_state.current_state = "debate_continue"
+                    st.rerun()
+        with col2:
+            if st.button("Show Examples", key="ex_debate1"):
+                log_autonomy("examples_request")
+                st.session_state.temp_show_examples = True
+                st.rerun()
+        
+        if st.session_state.temp_show_examples:
+            show_corpus_examples(CORPUS_EXAMPLES["low_power"], "Examples of casual disagreements:")
+            st.session_state.temp_show_examples = False
+    
+    elif st.session_state.current_state == "debate_continue":
+        st.markdown('<div class="activity-header">💭 Activity 2: Debate continues...</div>', unsafe_allow_html=True)
+        
+        topic = st.session_state.current_debate
         
         # Get AI response
         last_user_message = st.session_state.messages[-1]["content"]
         ai_response = call_gpt(
-            f"Student said: {last_user_message}\n\nContinue the sibling debate naturally. Model corpus patterns like 'I agree...but maybe' in your response. Keep it conversational as siblings. Respond to their content about money vs family/other values.",
+            f"Student said: {last_user_message}\n\nRespond as their friend in a casual debate about {topic['topic']}. Model 'yeah but' or 'yes but' patterns. Keep it friendly and conversational.",
             st.session_state.messages
         )
         
@@ -725,33 +668,238 @@ def process_activity3():
         
         st.markdown(f"""
         <div class="scenario-box">
-        <strong>Me (your sibling):</strong>
+        <strong>Me (your friend):</strong>
         <p>{ai_response}</p>
         </div>
         """, unsafe_allow_html=True)
         
-        st.info("**Your turn!** Continue the debate or end this scenario.")
+        if st.session_state.debate_turn >= 4:
+            st.info("That was a good debate! Let's end here.")
+            if st.button("End Debate"):
+                st.session_state.current_state = "debate_complete"
+                st.rerun()
+        else:
+            st.info("**Your turn!** Continue the debate or end it here.")
+            
+            user_response = st.text_area("Type your response:", key=f"debate_response{st.session_state.debate_turn}", height=100)
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                if st.button("Send Response", key=f"send_debate{st.session_state.debate_turn}"):
+                    if user_response:
+                        log_interaction("user", user_response)
+                        st.session_state.messages.append({"role": "user", "content": user_response})
+                        st.session_state.debate_turn += 1
+                        st.rerun()
+            with col2:
+                if st.button("Show Examples", key=f"ex_debate{st.session_state.debate_turn}"):
+                    log_autonomy("examples_request")
+                    st.session_state.temp_show_examples = True
+                    st.rerun()
+            with col3:
+                if st.button("End Debate", key=f"end_debate{st.session_state.debate_turn}"):
+                    st.session_state.current_state = "debate_complete"
+                    st.rerun()
+            
+            if st.session_state.temp_show_examples:
+                show_corpus_examples(CORPUS_EXAMPLES["low_power"], "Examples of casual disagreements:")
+                st.session_state.temp_show_examples = False
+    
+    elif st.session_state.current_state == "debate_complete":
+        st.markdown('<div class="activity-header">💭 Activity 2: Debate Complete!</div>', unsafe_allow_html=True)
         
-        user_response = st.text_area("Type your response:", key="scenario1_continue_input", height=100)
+        st.markdown("""
+        <div class="success-box">
+        <h3>Great debate!</h3>
         
-        col1, col2, col3 = st.columns(3)
+        <p>You practiced:</p>
+        <ul>
+            <li>✅ Disagreeing politely with a friend</li>
+            <li>✅ Using "Yeah but..." / "I agree but..." patterns</li>
+            <li>✅ Keeping the conversation natural and friendly</li>
+        </ul>
+        
+        <p>Next, you'll try a more formal situation!</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("Continue to Activity 3"):
+            st.session_state.current_activity = "activity3"
+            st.session_state.current_state = "activity3_intro"
+            st.session_state.messages = []  # Reset for Activity 3
+            st.session_state.transcribed_text = ""  # Reset transcription
+            st.session_state.last_audio_bytes = None  # Reset audio
+            log_interaction("system", "Completed Activity 2, Started Activity 3")
+            st.rerun()
+
+def process_activity3():
+    """Process Activity 3: Role-play scenarios with VOICE RECORDING"""
+    
+    if st.session_state.current_state == "activity3_intro":
+        st.markdown('<div class="activity-header">🎭 Activity 3: Real-Life Role-Play (with Voice!)</div>', unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div class="info-box">
+        <h3>Now for the real challenge!</h3>
+        
+        <p>You'll practice TWO scenarios:</p>
+        <ol>
+            <li><strong>Scenario 1:</strong> Disagreeing with a friend (casual)</li>
+            <li><strong>Scenario 2:</strong> Disagreeing with your boss (formal)</li>
+        </ol>
+        
+        <p><strong>✨ NEW: You can record your voice!</strong></p>
+        <p>For each scenario, you can either:</p>
+        <ul>
+            <li>🎤 <strong>Record your voice</strong> (speak naturally!)</li>
+            <li>⌨️ <strong>Type your response</strong> (like before)</li>
+        </ul>
+        
+        <p><strong>Remember:</strong></p>
+        <ul>
+            <li>With friends → More casual ("Yeah but...")</li>
+            <li>With bosses → More formal ("I understand, but...")</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("Start Scenario 1"):
+            st.session_state.current_state = "scenario1_start"
+            st.session_state.current_scenario = ROLE_PLAY_SCENARIOS[0]
+            st.rerun()
+    
+    elif st.session_state.current_state == "scenario1_start":
+        scenario = ROLE_PLAY_SCENARIOS[0]
+        
+        st.markdown('<div class="activity-header">🎭 Scenario 1: Talking with a friend</div>', unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div class="scenario-box">
+        <h3>{scenario['title']}</h3>
+        <p><strong>Your role:</strong> {scenario['role_student']}</p>
+        <p><strong>Situation:</strong> {scenario['situation']}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""
+        <div class="dialogue-box">
+        <strong>Your friend:</strong>
+        <p>{scenario['ai_opening']}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        log_interaction("assistant", scenario['ai_opening'])
+        
+        st.info("**Your turn!** Disagree with your friend. Remember to be casual: 'Yeah but...', 'I agree but...'")
+        
+        # Voice or text input
+        user_response, input_method = voice_or_text_input("Type your response:", "scenario1_initial")
+        
+        col1, col2 = st.columns(2)
         with col1:
             if st.button("Send Response", key="send_s1"):
                 if user_response:
-                    log_interaction("user", user_response)
+                    # Log with method indicator
+                    log_interaction("user", f"[{input_method.upper()}] {user_response}")
+                    st.session_state.messages.append({"role": "user", "content": user_response})
+                    st.session_state.current_state = "scenario1_scaffold"
+                    st.rerun()
+                else:
+                    st.warning("Please record your voice or type a response first!")
+        with col2:
+            if st.button("Show Examples", key="ex_s1"):
+                log_autonomy("examples_request")
+                st.session_state.temp_show_examples = True
+                st.rerun()
+        
+        if st.session_state.temp_show_examples:
+            show_corpus_examples(CORPUS_EXAMPLES["low_power"], "Casual disagreement patterns:")
+            st.session_state.temp_show_examples = False
+    
+    elif st.session_state.current_state == "scenario1_scaffold":
+        st.markdown('<div class="activity-header">🎭 Scenario 1: Let me show you some examples</div>', unsafe_allow_html=True)
+        
+        st.markdown("""
+        <div class="info-box">
+        <h4>Great start! Let me show you how other people disagreed with friends:</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        show_corpus_examples(CORPUS_EXAMPLES["low_power"][:3], "Examples from casual conversations:")
+        
+        st.markdown("""
+        <div class="info-box">
+        <h4>Notice the pattern:</h4>
+        <ul>
+            <li>Start with: "Yeah but..." or "I agree but..."</li>
+            <li>Keep it short and direct</li>
+            <li>Add your reason: "...but I think..." or "...but the problem is..."</li>
+        </ul>
+        
+        This is because you're talking to your FRIEND (casual, relaxed).
+        
+        Want to try your response again, keeping these patterns in mind?
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Voice or text input for reformulation
+        user_response, input_method = voice_or_text_input("Try again (or press Continue):", "scenario1_reformulate")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Send New Response", key="new_s1"):
+                if user_response:
+                    log_interaction("user", f"[{input_method.upper()} - REFORMULATED] {user_response}")
+                    st.session_state.messages.append({"role": "user", "content": user_response})
+                    st.session_state.current_state = "scenario1_continue"
+                    st.rerun()
+        with col2:
+            if st.button("Continue with Original", key="cont_s1"):
+                st.session_state.current_state = "scenario1_continue"
+                st.rerun()
+    
+    elif st.session_state.current_state == "scenario1_continue":
+        st.markdown('<div class="activity-header">🎭 Scenario 1: Conversation continues...</div>', unsafe_allow_html=True)
+        
+        # Get AI response
+        last_user_message = st.session_state.messages[-1]["content"]
+        ai_response = call_gpt(
+            f"Student said: {last_user_message}\n\nRespond as their friend. Model casual patterns like 'yeah but' in your response. Be friendly and conversational. Discuss phone usage and health.",
+            st.session_state.messages
+        )
+        
+        log_interaction("assistant", ai_response)
+        
+        st.markdown(f"""
+        <div class="scenario-box">
+        <strong>Your friend:</strong>
+        <p>{ai_response}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.info("**Your turn!** Continue the conversation or end this scenario.")
+        
+        # Voice or text input
+        user_response, input_method = voice_or_text_input("Your response:", "scenario1_continue_input")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Send Response", key="send_s1_cont"):
+                if user_response:
+                    log_interaction("user", f"[{input_method.upper()}] {user_response}")
                     st.session_state.messages.append({"role": "user", "content": user_response})
                     st.rerun()
         with col2:
-            if st.button("Show Examples"):
+            if st.button("Show Examples", key="ex_s1_cont"):
                 log_autonomy("examples_request")
                 st.session_state.temp_show_examples = True
                 st.rerun()
         with col3:
-            if st.button("End Scenario"):
+            if st.button("End Scenario", key="end_s1"):
                 st.session_state.current_state = "scenario1_complete"
                 st.rerun()
         
-        if hasattr(st.session_state, 'temp_show_examples') and st.session_state.temp_show_examples:
+        if st.session_state.temp_show_examples:
             show_corpus_examples(CORPUS_EXAMPLES["low_power"], "Casual disagreement patterns:")
             st.session_state.temp_show_examples = False
     
@@ -760,93 +908,109 @@ def process_activity3():
         
         st.markdown("""
         <div class="success-box">
-        <h3>Great debate!</h3>
-        <p>You made strong arguments! I still think money matters, but you definitely made me think!</p>
+        <h3>Nice conversation with your friend!</h3>
         
-        <p>Ready for Scenario 2? This time I'll be your <strong>BOSS</strong>, so think about how that might change how you disagree with me!</p>
+        <p>You practiced:</p>
+        <ul>
+            <li>✅ Casual disagreement patterns</li>
+            <li>✅ Being direct but friendly</li>
+            <li>✅ Using "Yeah but..." or "I agree but..."</li>
+        </ul>
+        
+        <p>Next, let's try a more formal situation with your boss!</p>
         </div>
         """, unsafe_allow_html=True)
         
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Start Scenario 2"):
-                st.session_state.current_state = "scenario2_start"
-                st.session_state.scenario_turn = 0
-                st.session_state.messages = []
-                st.rerun()
-        with col2:
-            if st.button("Review Corpus Examples"):
-                log_autonomy("review_request")
-                st.session_state.current_state = "scenario1_review"
-                st.rerun()
-    
-    elif st.session_state.current_state == "scenario1_review":
-        st.markdown('<div class="activity-header">📚 Review: Casual Disagreement Patterns</div>', unsafe_allow_html=True)
-        show_corpus_examples(CORPUS_EXAMPLES["low_power"], "Casual patterns (friends/siblings):")
-        
-        if st.button("Ready for Scenario 2"):
+        if st.button("Continue to Scenario 2"):
             st.session_state.current_state = "scenario2_start"
-            st.session_state.scenario_turn = 0
-            st.session_state.messages = []
+            st.session_state.current_scenario = ROLE_PLAY_SCENARIOS[1]
+            st.session_state.messages = []  # Reset messages for new scenario
+            st.session_state.transcribed_text = ""  # Reset transcription
+            st.session_state.last_audio_bytes = None  # Reset audio
             st.rerun()
     
     elif st.session_state.current_state == "scenario2_start":
-        st.markdown('<div class="activity-header">🎭 Scenario 2: Boss and Employee</div>', unsafe_allow_html=True)
+        scenario = ROLE_PLAY_SCENARIOS[1]
         
-        show_scenario("""
-        **The Setup:**
-        Now I'm your BOSS at a company. You're my employee.
-        I'm going to tell you about a new policy you don't agree with.
+        st.markdown('<div class="activity-header">🎭 Scenario 2: Talking with your boss</div>', unsafe_allow_html=True)
         
-        **Think:** How will you disagree with your BOSS differently than with your sibling?
-        """)
-        
-        st.markdown("""
+        st.markdown(f"""
         <div class="scenario-box">
-        <strong>Me (your boss):</strong>
-        <p>"I've reviewed the schedules, and I've decided that all employees need to work late shifts from now on. It's better for business, and I expect everyone to cooperate. This starts next week."</p>
+        <h3>{scenario['title']}</h3>
+        <p><strong>Your role:</strong> {scenario['role_student']}</p>
+        <p><strong>Situation:</strong> {scenario['situation']}</p>
+        <p><strong>⚠️ Important:</strong> This is your BOSS - be more formal and polite!</p>
         </div>
         """, unsafe_allow_html=True)
         
-        st.info("**The situation:** You have school in the morning, so you CAN'T work late shifts. How will you disagree with me? Remember: I'm your boss!")
+        st.markdown(f"""
+        <div class="dialogue-box">
+        <strong>Your boss:</strong>
+        <p>{scenario['ai_opening']}</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        user_response = st.text_area("Type your response:", key="scenario2_turn1", height=100)
+        log_interaction("assistant", scenario['ai_opening'])
         
-        if st.button("Send Response", key="send_s2_t1"):
-            if user_response:
-                log_interaction("user", user_response)
-                st.session_state.messages.append({"role": "user", "content": user_response})
-                st.session_state.scenario_turn = 1
-                st.session_state.current_state = "scenario2_scaffolding"
+        st.info("**Your turn!** Disagree with your boss. Remember to be FORMAL: 'I understand, but...', 'I can see, but...'")
+        
+        # Voice or text input
+        user_response, input_method = voice_or_text_input("Your response:", "scenario2_initial")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Send Response", key="send_s2"):
+                if user_response:
+                    log_interaction("user", f"[{input_method.upper()}] {user_response}")
+                    st.session_state.messages.append({"role": "user", "content": user_response})
+                    st.session_state.current_state = "scenario2_scaffold"
+                    st.rerun()
+                else:
+                    st.warning("Please record your voice or type a response first!")
+        with col2:
+            if st.button("Show Examples", key="ex_s2_start"):
+                log_autonomy("examples_request")
+                st.session_state.temp_show_examples = True
                 st.rerun()
+        
+        if st.session_state.temp_show_examples:
+            show_corpus_examples(CORPUS_EXAMPLES["high_power"], "Formal disagreement patterns:")
+            st.session_state.temp_show_examples = False
     
-    elif st.session_state.current_state == "scenario2_scaffolding":
-        st.markdown('<div class="activity-header">🎭 Scenario 2: Professional disagreement examples</div>', unsafe_allow_html=True)
-        
-        st.info("Before I respond, let me show you how employees disagreed with their bosses in similar situations in the corpus.")
-        
-        examples = CORPUS_EXAMPLES["high_power"][:4]
-        log_scaffolding("turn1_automatic", examples)
-        show_corpus_examples(examples, "Examples from Boss/Employee conversations:")
+    elif st.session_state.current_state == "scenario2_scaffold":
+        st.markdown('<div class="activity-header">🎭 Scenario 2: Let me show you some examples</div>', unsafe_allow_html=True)
         
         st.markdown("""
-        **Notice the differences from sibling conversations?**
-        - More elaborate: "I can understand..." "I can see..."
-        - Acknowledge boss's point FIRST
-        - Use softer language: "I'm not sure" "maybe" "I was wondering"
+        <div class="info-box">
+        <h4>Good effort! Let me show you how people disagree with bosses:</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        show_corpus_examples(CORPUS_EXAMPLES["high_power"][:3], "Examples from formal conversations:")
+        
+        st.markdown("""
+        <div class="info-box">
+        <h4>Notice the difference:</h4>
+        <ul>
+            <li>Start with: "I understand but..." or "I can see your point, but..."</li>
+            <li>More elaborate and careful</li>
+            <li>Show respect: "perhaps...", "maybe...", "I'm not sure if..."</li>
+        </ul>
         
         This is because you're talking to your BOSS (more formal, more careful).
         
         Want to try your response again, keeping these patterns in mind?
-        """)
+        </div>
+        """, unsafe_allow_html=True)
         
-        user_response = st.text_area("Try again (or press Continue to keep your original response):", key="scenario2_reformulate", height=100)
+        # Voice or text input for reformulation
+        user_response, input_method = voice_or_text_input("Try again (or press Continue):", "scenario2_reformulate")
         
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Send New Response", key="new_s2"):
                 if user_response:
-                    log_interaction("user", user_response + " [REFORMULATED]")
+                    log_interaction("user", f"[{input_method.upper()} - REFORMULATED] {user_response}")
                     st.session_state.messages.append({"role": "user", "content": user_response})
                     st.session_state.current_state = "scenario2_continue"
                     st.rerun()
@@ -876,13 +1040,14 @@ def process_activity3():
         
         st.info("**Your turn!** Continue the negotiation or end this scenario.")
         
-        user_response = st.text_area("Type your response:", key="scenario2_continue_input", height=100)
+        # Voice or text input
+        user_response, input_method = voice_or_text_input("Your response:", "scenario2_continue_input")
         
         col1, col2, col3 = st.columns(3)
         with col1:
             if st.button("Send Response", key="send_s2_cont"):
                 if user_response:
-                    log_interaction("user", user_response)
+                    log_interaction("user", f"[{input_method.upper()}] {user_response}")
                     st.session_state.messages.append({"role": "user", "content": user_response})
                     st.rerun()
         with col2:
@@ -895,7 +1060,7 @@ def process_activity3():
                 st.session_state.current_state = "scenario2_complete"
                 st.rerun()
         
-        if hasattr(st.session_state, 'temp_show_examples') and st.session_state.temp_show_examples:
+        if st.session_state.temp_show_examples:
             show_corpus_examples(CORPUS_EXAMPLES["high_power"], "Formal disagreement patterns:")
             st.session_state.temp_show_examples = False
     
@@ -937,6 +1102,7 @@ def process_activity3():
                 </ul>
             </li>
             <li>Practice in both situations!</li>
+            <li>✨ Used voice recording to practice speaking naturally!</li>
         </ol>
         </div>
         """, unsafe_allow_html=True)
