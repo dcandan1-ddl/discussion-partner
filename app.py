@@ -532,44 +532,48 @@ def process_activity1():
             st.rerun()
     
     elif st.session_state.current_state == "activity1_summary":
-        st.markdown('<div class="activity-header">📚 Activity 1: What Did You Discover?</div>', unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="success-box">
-        <h3>Great observation! Here's what you noticed:</h3>
-        
-        <p><strong>Both conversations use a similar pattern:</strong></p>
-        <ul>
-            <li>"I can see their point... <strong>But I don't agree</strong>"</li>
-            <li>"<strong>Well I agree but</strong> medicines are progressing..."</li>
-            <li>"<strong>Yes but</strong> if people live over 100..."</li>
-        </ul>
-        
-        <p>This is called a <strong>"Yes-But" construction</strong>!</p>
-        
-        <h4>What's happening?</h4>
-        <ol>
-            <li>First, show you understand: "I see..." / "I agree..." / "Yes..."</li>
-            <li>Then add your different opinion: "...but..."</li>
-        </ol>
-        
-        <p>This makes disagreeing <strong>polite and natural</strong> in English!</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("**Did you also notice a difference between the two conversations?**")
+        st.markdown('<div class="activity-header">📚 Activity 1: Look at More Examples</div>', unsafe_allow_html=True)
         
         st.markdown("""
         <div class="info-box">
-        <ul>
-            <li><strong>Conversation 1 (Boss & Employee):</strong> More formal - "I can see their point, but..."</li>
-            <li><strong>Conversation 2 (Friends):</strong> More casual - "Yeah but..." / "Yes but..."</li>
-        </ul>
-        <p>The relationship matters! With bosses or teachers = more formal. With friends = more casual.</p>
+        <p>Here are more examples from the same corpus of how people disagree:</p>
         </div>
         """, unsafe_allow_html=True)
         
+        st.markdown("**From conversations between friends:**")
+        show_corpus_examples([
+            "Yeah but there are some disadvantages like er...",
+            "yeah I agree but I still the problem is that...",
+            "Yes but if people are going to live over 100...",
+            "well I agree but maybe we can develop more jobs"
+        ])
+        
+        st.markdown("**From conversations between boss and employee:**")
+        show_corpus_examples([
+            "I can see their point. It is sometimes annoying. But I don't agree that they should be banned.",
+            "I can understand your opinion erm but I was still wondering...",
+            "I agree with this point but don't you think maybe the fact that times are changing is a good thing?",
+            "I understand his situation but I'm not sure if I should do it"
+        ])
+        
+        st.markdown("**Questions to think about:**")
+        st.markdown("""
+        <div class="info-box">
+        <ol>
+            <li>What do you notice that's <strong>the same</strong> in all these examples?</li>
+            <li>What do you notice that's <strong>different</strong> between friends vs. boss/employee?</li>
+            <li>Which examples are longer? Which are shorter?</li>
+            <li>When would you use each style?</li>
+        </ol>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("**Reflect on what you discovered:**")
+        reflection = st.text_area("Write your thoughts:", key="activity1_reflection", height=100)
+        
         if st.button("Ready for Activity 2"):
+            if reflection:
+                log_interaction("user", f"Activity 1 reflection: {reflection}")
             st.session_state.current_activity = "activity2"
             st.session_state.current_state = "activity2_intro"
             log_interaction("system", "Completed Activity 1, Started Activity 2")
@@ -587,12 +591,7 @@ def process_activity2():
         
         <p>We'll have a <strong>friendly debate</strong> about a topic. I'll take one side, you take the other.</p>
         
-        <p><strong>Your goal:</strong> Disagree with me politely using patterns like:
-        <ul>
-            <li>"Yeah but..."</li>
-            <li>"I agree but..."</li>
-            <li>"Yes but..."</li>
-        </ul>
+        <p>I'll disagree with you sometimes. You disagree with me too!</p>
         
         <p>Think of me as your friend! Let's debate casually.</p>
         </div>
@@ -634,19 +633,22 @@ def process_activity2():
         
         log_interaction("assistant", topic['ai_opening'])
         
-        st.info("**Your turn!** Disagree with me. Try to use: 'Yeah but...', 'I agree but...', or 'Yes but...'")
+        st.info("**Your turn!** Disagree with me.")
         
-        user_response = st.text_area("Type your response:", key="debate_response1", height=100)
+        # Voice or text input
+        user_response, input_method = voice_or_text_input("Your response:", "debate_response1")
         
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Send Response", key="send_debate1"):
                 if user_response:
-                    log_interaction("user", user_response)
+                    log_interaction("user", f"[{input_method.upper()}] {user_response}")
                     st.session_state.messages.append({"role": "user", "content": user_response})
                     st.session_state.debate_turn = 2
                     st.session_state.current_state = "debate_continue"
                     st.rerun()
+                else:
+                    st.warning("Please record your voice or type a response first!")
         with col2:
             if st.button("Show Examples", key="ex_debate1"):
                 log_autonomy("examples_request")
@@ -749,8 +751,8 @@ def process_activity3():
         
         <p>You'll practice TWO scenarios:</p>
         <ol>
-            <li><strong>Scenario 1:</strong> Disagreeing with a friend (casual)</li>
-            <li><strong>Scenario 2:</strong> Disagreeing with your boss (formal)</li>
+            <li><strong>Scenario 1:</strong> Talking with a friend</li>
+            <li><strong>Scenario 2:</strong> Talking with your boss</li>
         </ol>
         
         <p><strong>✨ NEW: You can record your voice!</strong></p>
@@ -760,11 +762,7 @@ def process_activity3():
             <li>⌨️ <strong>Type your response</strong> (like before)</li>
         </ul>
         
-        <p><strong>Remember:</strong></p>
-        <ul>
-            <li>With friends → More casual ("Yeah but...")</li>
-            <li>With bosses → More formal ("I understand, but...")</li>
-        </ul>
+        <p>Try to disagree politely in each situation. Think about what you discovered in Activities 1 and 2!</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -795,7 +793,7 @@ def process_activity3():
         
         log_interaction("assistant", scenario['ai_opening'])
         
-        st.info("**Your turn!** Disagree with your friend. Remember to be casual: 'Yeah but...', 'I agree but...'")
+        st.info("**Your turn!** Disagree with your friend.")
         
         # Voice or text input
         user_response, input_method = voice_or_text_input("Type your response:", "scenario1_initial")
@@ -826,7 +824,7 @@ def process_activity3():
         
         st.markdown("""
         <div class="info-box">
-        <h4>Great start! Let me show you how other people disagreed with friends:</h4>
+        <h4>Here's how other people disagreed with their friends in similar situations:</h4>
         </div>
         """, unsafe_allow_html=True)
         
@@ -834,16 +832,16 @@ def process_activity3():
         
         st.markdown("""
         <div class="info-box">
-        <h4>Notice the pattern:</h4>
+        <h4>Think about these examples:</h4>
         <ul>
-            <li>Start with: "Yeah but..." or "I agree but..."</li>
-            <li>Keep it short and direct</li>
-            <li>Add your reason: "...but I think..." or "...but the problem is..."</li>
+            <li>What words do you see at the beginning?</li>
+            <li>Are these examples long or short?</li>
+            <li>How do they sound - formal or casual?</li>
         </ul>
         
-        This is because you're talking to your FRIEND (casual, relaxed).
+        Look at your response. How is it similar or different?
         
-        Want to try your response again, keeping these patterns in mind?
+        Want to try your response again?
         </div>
         """, unsafe_allow_html=True)
         
@@ -957,7 +955,7 @@ def process_activity3():
         
         log_interaction("assistant", scenario['ai_opening'])
         
-        st.info("**Your turn!** Disagree with your boss. Remember to be FORMAL: 'I understand, but...', 'I can see, but...'")
+        st.info("**Your turn!** Disagree with your boss. Be polite and professional.")
         
         # Voice or text input
         user_response, input_method = voice_or_text_input("Your response:", "scenario2_initial")
@@ -987,7 +985,7 @@ def process_activity3():
         
         st.markdown("""
         <div class="info-box">
-        <h4>Good effort! Let me show you how people disagree with bosses:</h4>
+        <h4>Here's how other people disagreed with their bosses in similar situations:</h4>
         </div>
         """, unsafe_allow_html=True)
         
@@ -995,16 +993,16 @@ def process_activity3():
         
         st.markdown("""
         <div class="info-box">
-        <h4>Notice the difference:</h4>
+        <h4>Compare these examples to Scenario 1 (friend conversation):</h4>
         <ul>
-            <li>Start with: "I understand but..." or "I can see your point, but..."</li>
-            <li>More elaborate and careful</li>
-            <li>Show respect: "perhaps...", "maybe...", "I'm not sure if..."</li>
+            <li>Are these examples longer or shorter than the friend examples?</li>
+            <li>What words do you see at the beginning of these?</li>
+            <li>How do they sound different from talking to a friend?</li>
         </ul>
         
-        This is because you're talking to your BOSS (more formal, more careful).
+        Look at your response. How is it similar or different to these examples?
         
-        Want to try your response again, keeping these patterns in mind?
+        Want to try your response again?
         </div>
         """, unsafe_allow_html=True)
         
