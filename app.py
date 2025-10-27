@@ -651,11 +651,13 @@ def voice_or_text_input(input_label: str, key_prefix: str, height: int = 100):
                 st.markdown(f"**You said:** {transcribed_text}")
                 return transcribed_text, "voice"
         
-        # Show previously transcribed text if exists
-        if st.session_state.transcribed_text and not audio_bytes:
-            st.markdown(f"**Last recording:** {st.session_state.transcribed_text}")
-            if st.button("Use this recording", key=f"use_recording_{key_prefix}"):
-                return st.session_state.transcribed_text, "voice"
+        # Show previously transcribed text if exists and auto-return it
+        if st.session_state.transcribed_text:
+            if not (audio_bytes and audio_bytes != st.session_state.last_audio_bytes):
+                # Not currently transcribing, show what's ready
+                st.info(f"📝 **Ready to send:** {st.session_state.transcribed_text}")
+            # Automatically return the transcribed text so Send button can use it
+            return st.session_state.transcribed_text, "voice"
     
     with tab2:
         text_input = st.text_area(input_label, key=f"text_{key_prefix}", height=height)
@@ -925,6 +927,10 @@ def process_activity2():
                     ai_response = call_gpt(user_response, topic['relationship'], topic['topic'])
                     log_interaction("assistant", ai_response)
                     
+                    # Clear voice recording state after sending
+                    st.session_state.transcribed_text = ""
+                    st.session_state.last_audio_bytes = None
+                    
                     st.session_state.debate_turn += 1
                     st.rerun()
                 else:
@@ -1042,6 +1048,10 @@ def process_activity3():
                     ai_response = call_gpt(user_response, scenario['relationship'], "phone usage and health")
                     log_interaction("assistant", ai_response)
                     
+                    # Clear voice recording state after sending
+                    st.session_state.transcribed_text = ""
+                    st.session_state.last_audio_bytes = None
+                    
                     st.rerun()
                 else:
                     st.warning("Please record your voice or type a response first!")
@@ -1122,6 +1132,10 @@ def process_activity3():
                     # Get AI response
                     ai_response = call_gpt(user_response, scenario['relationship'], "late shift schedule vs school")
                     log_interaction("assistant", ai_response)
+                    
+                    # Clear voice recording state after sending
+                    st.session_state.transcribed_text = ""
+                    st.session_state.last_audio_bytes = None
                     
                     st.rerun()
                 else:
