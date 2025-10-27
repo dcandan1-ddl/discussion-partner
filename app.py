@@ -829,6 +829,8 @@ def process_activity2():
         
         <p>We'll have <strong>debates</strong> about different topics. I'll take one side, you take the other.</p>
         
+        <p><strong>✨ You can record your voice or type!</strong></p>
+        
         <p>You can choose between:</p>
         <ul>
             <li><strong>Casual debates</strong> with friends/classmates</li>
@@ -848,12 +850,16 @@ def process_activity2():
                 st.session_state.current_debate = DEBATE_TOPICS[0]
                 st.session_state.current_state = "debate_chat"
                 st.session_state.conversation_history = []
+                st.session_state.transcribed_text = ""
+                st.session_state.last_audio_bytes = None
                 st.rerun()
         with col2:
             if st.button("📚 Homework\n(Chat with your classmate)", key="debate_homework"):
                 st.session_state.current_debate = DEBATE_TOPICS[1]
                 st.session_state.current_state = "debate_chat"
                 st.session_state.conversation_history = []
+                st.session_state.transcribed_text = ""
+                st.session_state.last_audio_bytes = None
                 st.rerun()
         
         st.markdown("---")
@@ -864,12 +870,16 @@ def process_activity2():
                 st.session_state.current_debate = DEBATE_TOPICS[2]
                 st.session_state.current_state = "debate_chat"
                 st.session_state.conversation_history = []
+                st.session_state.transcribed_text = ""
+                st.session_state.last_audio_bytes = None
                 st.rerun()
         with col4:
             if st.button("🏢 Remote Work Policy\n(Talk with your boss)", key="debate_remote"):
                 st.session_state.current_debate = DEBATE_TOPICS[3]
                 st.session_state.current_state = "debate_chat"
                 st.session_state.conversation_history = []
+                st.session_state.transcribed_text = ""
+                st.session_state.last_audio_bytes = None
                 st.rerun()
     
     elif st.session_state.current_state == "debate_chat":
@@ -903,13 +913,13 @@ def process_activity2():
         
         # Input area
         st.markdown("---")
-        user_response = st.text_area("Your response:", key=f"debate_input_{st.session_state.debate_turn}", height=100)
+        user_response, input_method = voice_or_text_input("Your response:", f"debate_{st.session_state.debate_turn}")
         
         col1, col2, col3 = st.columns(3)
         with col1:
             if st.button("Send", key=f"send_{st.session_state.debate_turn}"):
                 if user_response:
-                    log_interaction("user", user_response)
+                    log_interaction("user", f"[{input_method.upper()}] {user_response}")
                     
                     # Get AI response
                     ai_response = call_gpt(user_response, topic['relationship'], topic['topic'])
@@ -918,7 +928,7 @@ def process_activity2():
                     st.session_state.debate_turn += 1
                     st.rerun()
                 else:
-                    st.warning("Please type a response first!")
+                    st.warning("Please record your voice or type a response first!")
         
         with col2:
             if st.button("Need Help?", key=f"help_{st.session_state.debate_turn}"):
@@ -944,9 +954,9 @@ def process_activity2():
         <div class="success-box">
         <h3>Great debate!</h3>
         
-        <p>You practiced disagreeing with a friend in a casual, natural conversation.</p>
+        <p>You practiced disagreeing in a natural conversation, using voice or text input!</p>
         
-        <p>Next, you'll try a more formal situation!</p>
+        <p>Next, you'll try role-play scenarios with different relationships!</p>
         </div>
         """, unsafe_allow_html=True)
         
