@@ -259,7 +259,12 @@ ROLE_PLAY_SCENARIOS = [
 def init_session_state():
     """Initialize all session state variables"""
     if 'api_key' not in st.session_state:
-        st.session_state.api_key = None
+        # Try to load API key from Streamlit secrets first
+        try:
+            st.session_state.api_key = st.secrets["OPENAI_API_KEY"]
+        except (KeyError, FileNotFoundError):
+            # If not in secrets, set to None (will require manual entry)
+            st.session_state.api_key = None
     if 'student_name' not in st.session_state:
         st.session_state.student_name = None
     if 'messages' not in st.session_state:
@@ -1149,10 +1154,22 @@ def main():
     with st.sidebar:
         st.title("⚙️ Instructor Settings")
         
-        api_key_input = st.text_input("OpenAI API Key:", type="password")
-        if api_key_input:
-            st.session_state.api_key = api_key_input
-            st.success("API Key configured!")
+        # Check if API key is loaded from secrets
+        api_from_secrets = False
+        try:
+            if st.secrets.get("OPENAI_API_KEY"):
+                api_from_secrets = True
+        except (KeyError, FileNotFoundError, AttributeError):
+            pass
+        
+        if api_from_secrets and st.session_state.api_key:
+            st.success("✅ API Key loaded from secrets")
+            st.info("Students won't see this - key is secure!")
+        else:
+            api_key_input = st.text_input("OpenAI API Key:", type="password")
+            if api_key_input:
+                st.session_state.api_key = api_key_input
+                st.success("API Key configured!")
         
         if st.session_state.api_key:
             st.info("✅ Chatbot is ready for students!")
@@ -1167,7 +1184,12 @@ def main():
         
         if st.button("Reset Session"):
             for key in list(st.session_state.keys()):
+                # Don't delete the API key if it came from secrets
+                if key == 'api_key' and api_from_secrets:
+                    continue
                 del st.session_state[key]
+            # Re-initialize to reload API key from secrets
+            init_session_state()
             st.rerun()
     
     # Check if API key is configured
