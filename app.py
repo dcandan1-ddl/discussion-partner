@@ -542,77 +542,20 @@ def show_context_reminder(relationship: str, power: str):
     st.markdown(f'<div class="context-reminder">{reminder_text}</div>', unsafe_allow_html=True)
 
 def display_conversation_history():
-    """Display the conversation history like a real chat app - SIMPLIFIED"""
+    """Display conversation using Streamlit's native chat messages"""
     
-    # Debug: Show count
-    num_messages = len(st.session_state.conversation_history)
-    
-    if num_messages == 0:
+    if not st.session_state.conversation_history:
         st.info("💬 Conversation will appear here...")
         return
     
-    # Simple container
-    st.markdown("""
-    <div style="
-        background: #f5f5f5;
-        border-radius: 15px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        min-height: 200px;
-        max-height: 500px;
-        overflow-y: auto;
-    ">
-    """, unsafe_allow_html=True)
-    
-    # Display EVERY message - using simple approach
-    message_count = 0
-    for msg in st.session_state.conversation_history:
-        message_count += 1
-        
-        if msg["role"] == "user":
-            # User message - blue, right side
-            st.markdown(f"""
-            <div style="margin: 1rem 0; text-align: right;">
-                <div style="
-                    display: inline-block;
-                    background-color: #2196f3;
-                    color: white;
-                    padding: 12px 16px;
-                    border-radius: 18px 18px 4px 18px;
-                    max-width: 70%;
-                    text-align: left;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-                ">
-                    <div style="font-size: 11px; opacity: 0.8; margin-bottom: 4px;">You</div>
-                    <div style="font-size: 14px;">{msg["content"]}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+    # Use Streamlit's built-in chat message display
+    for message in st.session_state.conversation_history:
+        if message["role"] == "user":
+            with st.chat_message("user"):
+                st.write(message["content"])
         else:
-            # AI message - white, left side  
-            st.markdown(f"""
-            <div style="margin: 1rem 0; text-align: left;">
-                <div style="
-                    display: inline-block;
-                    background-color: white;
-                    color: #333;
-                    padding: 12px 16px;
-                    border-radius: 18px 18px 18px 4px;
-                    max-width: 70%;
-                    text-align: left;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-                    border: 1px solid #ddd;
-                ">
-                    <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Discussion Partner</div>
-                    <div style="font-size: 14px;">{msg["content"]}</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-    
-    # Debug caption
-    st.caption(f"💬 {message_count} messages")
+            with st.chat_message("assistant", avatar="🤖"):
+                st.write(message["content"])
 
 def show_scaffolding(power_level: str):
     """Show scaffolding at Turn 1 of each scenario - ONLY examples and noticing questions, NO explicit teaching"""
@@ -988,17 +931,27 @@ def process_activity2():
         # Handle buttons
         if send_button:
             if user_response:
+                # Debug
+                st.write(f"DEBUG: Sending message: {user_response[:50]}...")
+                st.write(f"DEBUG: Current history length: {len(st.session_state.conversation_history)}")
+                
                 log_interaction("user", f"[{input_method.upper()}] Turn {st.session_state.turn_count + 1}: {user_response}")
                 
                 with st.spinner("💭 Thinking..."):
                     ai_response = call_gpt(user_response, topic['relationship'], topic['topic'])
                     log_interaction("assistant", ai_response)
                 
+                # Debug
+                st.write(f"DEBUG: After GPT, history length: {len(st.session_state.conversation_history)}")
+                st.write(f"DEBUG: AI response: {ai_response[:50]}...")
+                
                 st.session_state.transcribed_text = ""
                 st.session_state.last_audio_bytes = None
                 st.session_state.debate_turn += 1
                 st.session_state.turn_count += 1
                 
+                # Force immediate update
+                st.success("✅ Message sent! Refreshing...")
                 st.rerun()
             else:
                 st.warning("⚠️ Please record your voice or type a response first!")
