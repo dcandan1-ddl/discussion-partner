@@ -891,8 +891,13 @@ def process_activity2():
         st.markdown("---")
         st.markdown("### 💬 Chat")
         
-        # Debug info
-        st.caption(f"📊 Debug: {len(st.session_state.conversation_history)} messages in history | Turn: {st.session_state.turn_count}")
+        # EXPLICIT DEBUG - Show what's in memory
+        st.warning(f"🔍 DEBUG: conversation_history has {len(st.session_state.conversation_history)} messages")
+        
+        if st.session_state.conversation_history:
+            st.info(f"First message: {st.session_state.conversation_history[0]['role']}: {st.session_state.conversation_history[0]['content'][:50]}...")
+            if len(st.session_state.conversation_history) > 1:
+                st.info(f"Last message: {st.session_state.conversation_history[-1]['role']}: {st.session_state.conversation_history[-1]['content'][:50]}...")
         
         display_conversation_history()
         
@@ -911,6 +916,11 @@ def process_activity2():
         # Simple text input using Streamlit's chat_input (the proper way!)
         user_input = st.chat_input("Type your response here...", key=f"chat_input_{st.session_state.debate_turn}")
         
+        # DEBUG: Show if input was received
+        if user_input:
+            st.success(f"✅ RECEIVED INPUT: {user_input[:50]}...")
+            st.info(f"📝 About to call GPT with relationship={topic['relationship']}, topic={topic['topic']}")
+        
         # Buttons below
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -923,15 +933,21 @@ def process_activity2():
         # Handle chat input (st.chat_input automatically submits on Enter)
         if user_input:
             # User sent a message!
+            st.warning(f"🔄 Processing message... History before: {len(st.session_state.conversation_history)}")
+            
             log_interaction("user", f"Turn {st.session_state.turn_count + 1}: {user_input}")
             
             with st.spinner("💭 Thinking..."):
                 ai_response = call_gpt(user_input, topic['relationship'], topic['topic'])
+                st.success(f"✅ Got AI response: {ai_response[:50]}...")
                 log_interaction("assistant", ai_response)
+            
+            st.warning(f"🔄 History after GPT: {len(st.session_state.conversation_history)}")
             
             st.session_state.debate_turn += 1
             st.session_state.turn_count += 1
             
+            st.success("🔄 About to rerun...")
             st.rerun()
         
         if help_button:
