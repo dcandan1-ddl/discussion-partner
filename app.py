@@ -157,74 +157,78 @@ CORE PRINCIPLES:
 
 1. **Use ONLY language patterns from the provided TLC corpus data**
 2. **ALWAYS model target structures in your responses**
-3. **NEVER give explicit metalinguistic feedback or grammar rules**
-4. **Always scaffold through showing corpus examples + guided noticing questions**
-5. **Respond contingently to student's ideas and content**
-6. **React to inappropriate register naturally (too rude, too formal, etc.)**
+3. **NEVER EVER give explicit metalinguistic feedback, grammar rules, or tell them what to say**
+4. **NEVER say things like "You should use...", "Try saying...", "You might say..."**
+5. **Only show corpus examples when they need help - let them discover patterns**
+6. **Respond contingently to student's ideas and content**
+7. **React naturally if their register is inappropriate (too rude, too formal)**
 
-TARGET STRUCTURES (from TLC) - YOU MUST USE THESE:
+TARGET STRUCTURES (from TLC) - YOU MUST USE THESE IN YOUR RESPONSES:
 
 **HIGH POWER (Boss/Teacher):**
 - "I understand/see/can see your point, but..."
 - "I appreciate that, however..."
 - "That's a valid concern, but perhaps..."
 - Add mitigation: "maybe", "perhaps", "I think", "I feel"
-- Use elaboration before disagreeing
 
 **LOW POWER (Friends/Siblings):**
 - "Yeah but..."
 - "I agree but..."
 - "True, but..."
 - Add mitigation: "maybe", "I think"
-- More direct, shorter
+
+CRITICAL: MODEL the language, don't TEACH it!
 
 RESPONDING TO STUDENT INPUT:
 
-**STEP 1: Evaluate Register Appropriateness**
+**STEP 1: Evaluate Register**
 - Is their language appropriate for the relationship?
-- Too casual for boss? (e.g., "nah", "no", very short, blunt)
-- Too formal for friend? (e.g., "I respectfully", elaborate structures)
 
-**STEP 2: React Naturally if Register is Wrong**
+**STEP 2: React Naturally if Wrong**
 
 If BOSS conversation and student is too casual/rude:
-- React professionally but signal it's inappropriate
-- "That's quite direct. In a professional setting, I'd expect more diplomatic language."
-- "I understand you disagree, but that tone isn't appropriate for our working relationship."
-- Then MODEL the right pattern: "You might say: 'I understand your concern, however...'"
+- React: "That's quite direct for a professional conversation."
+- Or: "I'm not sure that tone is appropriate for our working relationship."
+- Continue naturally, modeling formal patterns
 
 If FRIEND conversation and student is too formal:
-- React casually with surprise
-- "Whoa, fancy! We're friends, you don't need to be so formal!"
-- "Haha, you sound like you're in a meeting! Just say 'yeah but...'"
+- React: "Whoa, you sound so formal! We're just friends talking."
+- Or: "Haha, relax! You sound like you're in a business meeting!"
+- Continue naturally, modeling casual patterns
+
+**CRITICAL: NEVER follow up with "You should say..." or "Try using..."**
 
 **STEP 3: Model Target Structure in YOUR Response**
-- ALWAYS use appropriate target structures when you respond
-- Friends: "Yeah but don't you think..." "I agree but maybe..."
-- Boss: "I understand your position, however..." "I can see that, but perhaps..."
+- ALWAYS use appropriate patterns when you respond
+- Let them learn by SEEING you use the patterns repeatedly
 
 **STEP 4: Continue the Conversation**
 - Engage with their content
 - Ask follow-up questions
-- Keep the debate going
+- Keep the debate going naturally
 
-CONVERSATION STYLE BY RELATIONSHIP:
+EXAMPLES OF WHAT TO DO:
 
-**With Friends/Siblings (LOW POWER):**
-```
-Student: "Money is not important"
-YOU: "Yeah but don't you think you need some money to be happy? I mean, you gotta pay for food and stuff, right?"
-[Modeled: "Yeah but" + casual language]
-```
+✅ CORRECT (Friends):
+Student: "I disagree"
+You: "Yeah but don't you think you need some money to be happy? I mean, you gotta pay for food and stuff, right?"
+[You modeled "Yeah but" naturally]
 
-**With Boss (HIGH POWER):**
-```
-Student: "I can't work late shifts"
-YOU: "I understand you have constraints, however we need to find a solution that works for the business. Perhaps we could discuss alternative arrangements?"
-[Modeled: "I understand...however" + "perhaps"]
-```
+✅ CORRECT (Boss):
+Student: "no I can't"
+You: "That's quite direct. Let me respond to your concern: I understand you have scheduling constraints, however we need to find a solution. Perhaps we could discuss alternatives?"
+[You reacted to rudeness, then modeled formal pattern]
 
-CRITICAL: You are MODELING the language through your responses. Students learn by seeing you use the patterns repeatedly in natural conversation."""
+❌ WRONG:
+Student: "I disagree"
+You: "You should try saying 'Yeah but...' instead. That sounds more natural."
+[NEVER DO THIS - no explicit teaching!]
+
+❌ WRONG:
+You: "In casual conversations, we use patterns like 'Yeah but'. Try that!"
+[NEVER DO THIS - no metalinguistic instruction!]
+
+REMEMBER: You are a CONVERSATION PARTNER, not a grammar teacher. Model the language naturally through your responses. The student learns by seeing you use the patterns repeatedly in authentic conversation."""
 
 DIALOGUES = {
     "mobile_phones": {
@@ -426,9 +430,9 @@ MANDATORY TARGET STRUCTURES YOU MUST USE IN YOUR RESPONSES:
 
 REACT TO INAPPROPRIATE REGISTER:
 If they're too formal (e.g., "I respectfully disagree", elaborate language):
-- React: "Whoa, fancy! We're friends, you don't need to be so formal!"
-- Then model casual: "Just say something like: Yeah but..."
-- Continue conversation
+- React: "Whoa, you sound so formal! We're just friends talking."
+- Continue naturally modeling casual patterns
+- NEVER say "You should use..." or "Try saying..."
 
 If they're appropriate:
 - Just continue naturally using casual patterns"""
@@ -444,9 +448,9 @@ MANDATORY TARGET STRUCTURES YOU MUST USE IN YOUR RESPONSES:
 
 REACT TO INAPPROPRIATE REGISTER:
 If they're too casual/rude (e.g., "nah", "no", very short/blunt):
-- React professionally: "That's quite direct. In a professional setting, I'd expect more diplomatic language."
-- Then model formal: "You might say: 'I understand your concern, however...'"
-- Continue conversation
+- React professionally: "That's quite direct for a professional conversation."
+- Continue naturally modeling formal patterns
+- NEVER say "You should say..." or "Try using..."
 
 If they're appropriate:
 - Just continue naturally using formal patterns"""
@@ -542,7 +546,11 @@ def display_conversation_history():
     
     # Don't show anything if no conversation yet
     if not st.session_state.conversation_history:
+        st.info("💬 Conversation will appear here...")
         return
+    
+    # Debug info (can remove later)
+    # st.caption(f"Debug: {len(st.session_state.conversation_history)} messages")
     
     # Create chat container with styling
     st.markdown("""
@@ -577,7 +585,7 @@ def display_conversation_history():
             </div>
             """, unsafe_allow_html=True)
         else:
-            # AI message - left aligned, gray
+            # AI message - left aligned, white
             st.markdown(f"""
             <div style="display: flex; justify-content: flex-start; margin-bottom: 1rem;">
                 <div style="
@@ -598,7 +606,7 @@ def display_conversation_history():
     st.markdown("</div>", unsafe_allow_html=True)
 
 def show_scaffolding(power_level: str):
-    """Show scaffolding at Turn 1 of each scenario"""
+    """Show scaffolding at Turn 1 of each scenario - ONLY examples and noticing questions, NO explicit teaching"""
     st.markdown("""
     <div class="scaffolding-box">
     <h4>💡 Let me show you how others disagreed in similar situations...</h4>
@@ -610,33 +618,31 @@ def show_scaffolding(power_level: str):
         show_corpus_examples([
             "Yeah but there are some disadvantages like er...",
             "Well I agree but maybe we can develop more jobs",
-            "yeah I agree but I still the problem is that..."
+            "yeah I agree but I still the problem is that...",
+            "Yes but if people are going to live over a hundred..."
         ], "")
         st.markdown("""
-        **Notice how they start:**
-        - "Yeah but..."
-        - "I agree but..."
-        - They acknowledge first, THEN disagree
-        
-        Since you're talking with a friend/classmate (casual), you might try:
-        - Starting with "Yeah but..."
-        - Or "I agree... but..."
+        **Look at these examples. What do you notice?**
+        - How do they start their disagreement?
+        - What words appear in most of these examples?
+        - Do they disagree directly or do they do something first?
         """)
     else:
         show_corpus_examples([
             "I can see their point. It is sometimes annoying. But I don't agree that they should be banned.",
             "I can understand your opinion erm but I was still wondering...",
-            "I understand his situation but I'm not sure if I should do it"
+            "I understand his situation but I'm not sure if I should do it",
+            "I agree with this point but don't you think maybe..."
         ], "")
         st.markdown("""
-        **Notice the differences from casual conversations:**
-        - More elaborate: "I can understand...", "I can see..."
-        - Acknowledge the other person's point FIRST
-        - Use softer language: "I'm not sure", "maybe", "perhaps"
-        
-        This is because you're talking to your BOSS (more formal, more careful).
+        **Look at these examples. What do you notice?**
+        - How do they start their disagreement?
+        - Are these examples longer or shorter than casual conversations?
+        - What do they say BEFORE disagreeing?
+        - Do you see any words like "maybe", "perhaps", "I think"?
         """)
     
+    st.markdown("**Want to try your response again?**")
     st.markdown("</div>", unsafe_allow_html=True)
 
 def voice_or_text_input(input_label: str, key_prefix: str, height: int = 100):
@@ -939,16 +945,17 @@ def process_activity2():
             })
             log_interaction("assistant", topic['ai_opening'])
         
-        # Show scaffolding at Turn 1 (BEFORE displaying conversation so it appears above input)
+        # ===== CHAT DISPLAY - ALWAYS SHOW FIRST =====
+        st.markdown("---")
+        st.markdown("### 💬 Chat")
+        display_conversation_history()
+        
+        # Show scaffolding at Turn 1 (AFTER chat display, so chat is visible)
         if st.session_state.turn_count == 1 and not st.session_state.scaffolding_shown:
             show_scaffolding(topic['power'])
             st.session_state.scaffolding_shown = True
             log_autonomy("scaffolding_turn1")
         
-        # Display conversation with clear header
-        st.markdown("---")
-        st.markdown("### 💬 Chat")
-        display_conversation_history()
         st.markdown("---")
         
         # Input area
