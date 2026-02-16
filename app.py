@@ -542,68 +542,77 @@ def show_context_reminder(relationship: str, power: str):
     st.markdown(f'<div class="context-reminder">{reminder_text}</div>', unsafe_allow_html=True)
 
 def display_conversation_history():
-    """Display the conversation history like a real chat app"""
+    """Display the conversation history like a real chat app - SIMPLIFIED"""
     
-    # Don't show anything if no conversation yet
-    if not st.session_state.conversation_history:
+    # Debug: Show count
+    num_messages = len(st.session_state.conversation_history)
+    
+    if num_messages == 0:
         st.info("💬 Conversation will appear here...")
         return
     
-    # Debug info (can remove later)
-    # st.caption(f"Debug: {len(st.session_state.conversation_history)} messages")
-    
-    # Create chat container with styling
+    # Simple container
     st.markdown("""
     <div style="
-        background: linear-gradient(to bottom, #e8eaf6 0%, #f5f5f5 100%);
+        background: #f5f5f5;
         border-radius: 15px;
         padding: 1.5rem;
         margin: 1rem 0;
+        min-height: 200px;
         max-height: 500px;
         overflow-y: auto;
-        box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
     ">
     """, unsafe_allow_html=True)
     
-    # Display ALL messages in sequence
-    for i, msg in enumerate(st.session_state.conversation_history):
+    # Display EVERY message - using simple approach
+    message_count = 0
+    for msg in st.session_state.conversation_history:
+        message_count += 1
+        
         if msg["role"] == "user":
-            # User message - right aligned, blue
+            # User message - blue, right side
             st.markdown(f"""
-            <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
+            <div style="margin: 1rem 0; text-align: right;">
                 <div style="
+                    display: inline-block;
                     background-color: #2196f3;
                     color: white;
-                    padding: 0.8rem 1.2rem;
+                    padding: 12px 16px;
                     border-radius: 18px 18px 4px 18px;
                     max-width: 70%;
+                    text-align: left;
                     box-shadow: 0 2px 4px rgba(0,0,0,0.15);
                 ">
-                    <div style="font-size: 0.75rem; opacity: 0.9; margin-bottom: 0.3rem;">You</div>
-                    <div>{msg["content"]}</div>
+                    <div style="font-size: 11px; opacity: 0.8; margin-bottom: 4px;">You</div>
+                    <div style="font-size: 14px;">{msg["content"]}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
         else:
-            # AI message - left aligned, white
+            # AI message - white, left side  
             st.markdown(f"""
-            <div style="display: flex; justify-content: flex-start; margin-bottom: 1rem;">
+            <div style="margin: 1rem 0; text-align: left;">
                 <div style="
+                    display: inline-block;
                     background-color: white;
                     color: #333;
-                    padding: 0.8rem 1.2rem;
+                    padding: 12px 16px;
                     border-radius: 18px 18px 18px 4px;
                     max-width: 70%;
+                    text-align: left;
                     box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-                    border: 1px solid #e0e0e0;
+                    border: 1px solid #ddd;
                 ">
-                    <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.3rem;">Discussion Partner</div>
-                    <div>{msg["content"]}</div>
+                    <div style="font-size: 11px; color: #666; margin-bottom: 4px;">Discussion Partner</div>
+                    <div style="font-size: 14px;">{msg["content"]}</div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
     
     st.markdown("</div>", unsafe_allow_html=True)
+    
+    # Debug caption
+    st.caption(f"💬 {message_count} messages")
 
 def show_scaffolding(power_level: str):
     """Show scaffolding at Turn 1 of each scenario - ONLY examples and noticing questions, NO explicit teaching"""
