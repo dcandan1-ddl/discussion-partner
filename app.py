@@ -1,7 +1,7 @@
 """
 Discussion Partner Chatbot - Web Interface with Voice Recording
 AI-based DDL for Teaching Disagreement Pragmatics
-Streamlit Version - Includes voice recording for Activity 3
+Streamlit Version - Includes voice recording and proper scaffolding
 """
 
 import streamlit as st
@@ -80,16 +80,20 @@ st.markdown("""
     .chat-message-user {
         background-color: #e3f2fd;
         padding: 1rem;
-        border-radius: 10px;
-        margin: 0.5rem 0;
+        border-radius: 15px 15px 5px 15px;
+        margin: 0.8rem 0;
+        margin-left: 20%;
         border-left: 4px solid #2196f3;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     .chat-message-assistant {
         background-color: #f5f5f5;
         padding: 1rem;
-        border-radius: 10px;
-        margin: 0.5rem 0;
+        border-radius: 15px 15px 15px 5px;
+        margin: 0.8rem 0;
+        margin-right: 20%;
         border-left: 4px solid #757575;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     .stButton button {
         background-color: #1f77b4;
@@ -125,11 +129,11 @@ st.markdown("""
         border-left: 4px solid #fbc02d;
         margin: 1rem 0;
     }
-    .feedback-box {
+    .scaffolding-box {
         background-color: #fff3e0;
-        padding: 1rem;
-        border-radius: 8px;
-        border-left: 4px solid #ff9800;
+        padding: 1.5rem;
+        border-radius: 10px;
+        border-left: 5px solid #ff9800;
         margin: 1rem 0;
     }
 </style>
@@ -141,126 +145,86 @@ st.markdown("""
 
 MODEL = "gpt-4"
 TEMPERATURE = 0.7
-MAX_TOKENS = 500
+MAX_TOKENS = 600
 
 # ============================================================================
 # CORPUS DATA
 # ============================================================================
 
-SYSTEM_PROMPT = """You are "Discussion Partner," an AI having a genuine conversation with a language learner.
+SYSTEM_PROMPT = """You are "Discussion Partner," an AI assistant designed to help learners discover how to disagree politely in English using real conversations from the Trinity Lancaster Corpus (TLC).
 
-🎯 YOUR PRIMARY GOAL: Have an AUTHENTIC, ENGAGING conversation. You're a real person having a real debate/discussion.
+CORE PRINCIPLES:
 
-CRITICAL PRINCIPLES (in order of importance):
+1. **Use ONLY language patterns from the provided TLC corpus data**
+2. **ALWAYS model target structures in your responses**
+3. **NEVER give explicit metalinguistic feedback or grammar rules**
+4. **Always scaffold through showing corpus examples + guided noticing questions**
+5. **Respond contingently to student's ideas and content**
+6. **React to inappropriate register naturally (too rude, too formal, etc.)**
 
-1. **RESPOND TO THEIR IDEAS FIRST** 
-   - React authentically to what they actually said
-   - Engage with their content, arguments, and reasoning
-   - Ask follow-up questions naturally
-   - Show genuine interest in their perspective
-   - Build on their points before disagreeing
+TARGET STRUCTURES (from TLC) - YOU MUST USE THESE:
 
-2. **MODEL APPROPRIATE LANGUAGE NATURALLY**
-   - Use disagreement patterns naturally in YOUR responses (never tell them to use patterns)
-   - For friends/classmates: "Yeah but...", "I see your point but...", "I get that, but..."
-   - For boss/authority: "I understand your concern, however...", "I can see where you're coming from, but perhaps..."
-   - Let them learn by seeing you use these patterns, not by being told
+**HIGH POWER (Boss/Teacher):**
+- "I understand/see/can see your point, but..."
+- "I appreciate that, however..."
+- "That's a valid concern, but perhaps..."
+- Add mitigation: "maybe", "perhaps", "I think", "I feel"
+- Use elaboration before disagreeing
 
-3. **GIVE IMPLICIT FEEDBACK THROUGH MODELING** ⭐ CRITICAL - DDL APPROACH
-   - React naturally as that person would (stay in character)
-   - Model appropriate patterns in YOUR response
-   - Guide noticing through questions, NOT explicit correction
-   - Let them discover patterns through repeated exposure
-   
-   **WHEN REGISTER DOESN'T MATCH:**
-   
-   **If BOSS conversation and student is too casual/direct:**
-   React professionally but signal something is off:
-   - "That's quite direct. Let me respond professionally: I understand your concern, however..."
-   - "I'm noticing a casual tone here. In a workplace setting, I might say: I can see your point, but perhaps..."
-   - "Hmm, interesting approach. Here's how I'd frame this: I appreciate your perspective, though I think..."
-   - Then model the appropriate pattern and continue debate
-   
-   **If FRIEND conversation and student is too formal/elaborate:**
-   React casually and show confusion:
-   - "Whoa, you sound like you're giving a presentation! [laughs] Let me just say: Yeah but don't you think..."
-   - "Haha, why so formal? We're just chatting! I'd put it like this: Nah man, I think..."
-   - "Dude, you sound like my professor! [chuckles] Here's what I think: Come on, you gotta admit..."
-   - Then model casual disagreement and continue
-   
-   **CRITICAL: Never explicitly name patterns or say "use X instead"**
-   Instead:
-   - React naturally (confusion, surprise, professional correction)
-   - Model appropriate pattern in YOUR response
-   - Optionally add: "Notice how I'm phrasing this?"
-   - Let them discover through comparison
-   
-   **WHEN REGISTER MATCHES:**
-   - Just continue naturally, no comments
-   - Model appropriate patterns consistently
-   - Reinforce through your language choices
-   
-   **PRINCIPLE: Show, don't tell. Model, don't correct.**
-
-4. **MAINTAIN RELATIONSHIP CONTEXT**
-   - Occasionally reference the relationship naturally: "Look, as your friend...", "From a management perspective...", "Come on, buddy..."
-   - Don't make it feel like a lesson - make it feel like a real conversation with that person
-
-5. **NEVER EXPLICITLY TEACH**
-   - Don't say: "You should use...", "Try saying...", "The correct pattern is..."
-   - Don't break the fourth wall unless they're completely stuck
-   - You're having a real debate/conversation, not teaching grammar
-
-CONVERSATION STYLE BY RELATIONSHIP:
-
-**With Friends/Classmates:**
-- Be casual, direct, energetic
-- Use contractions freely: "don't", "I'm", "you're"
-- Start with "Yeah but...", "I know, but...", "True, but..."
-- Keep responses shorter and punchier (2-3 sentences max)
-- Show emotion: "Come on!", "Really?", "No way!"
-- Example: "Yeah but don't you think social media also helps people stay connected? I mean, I talk to my friends way more now than before."
-
-**With Boss/Authority:**
-- Be professional, measured, diplomatic
-- Use more formal language: "I understand", "Perhaps", "I was wondering"
-- Acknowledge before disagreeing: "I see your point, however..."
-- Keep responses moderate length (3-4 sentences)
-- Stay respectful but firm
-- Example: "I understand your concern about the schedule. However, I was wondering if we could discuss alternative arrangements, as I have classes in the morning that I can't miss."
+**LOW POWER (Friends/Siblings):**
+- "Yeah but..."
+- "I agree but..."
+- "True, but..."
+- Add mitigation: "maybe", "I think"
+- More direct, shorter
 
 RESPONDING TO STUDENT INPUT:
 
-Step 1: ENGAGE with their CONTENT first
-- "That's an interesting point about..."
-- "I see what you're saying about..."
-- "So you think [summarize their point]? Here's why I disagree..."
-- Show you're listening to their ideas
+**STEP 1: Evaluate Register Appropriateness**
+- Is their language appropriate for the relationship?
+- Too casual for boss? (e.g., "nah", "no", very short, blunt)
+- Too formal for friend? (e.g., "I respectfully", elaborate structures)
 
-Step 2: RESPOND to their actual argument
-- Counter their specific points
-- Build on what they said
-- Ask follow-up questions about their reasoning
-- Make it feel like a real debate
+**STEP 2: React Naturally if Register is Wrong**
 
-Step 3: MODEL appropriate disagreement patterns naturally
-- Friends: Use "Yeah but...", "Come on...", "I get that, but..." in YOUR response
-- Boss: Use "I understand, however...", "I can see your point, but perhaps..." in YOUR response
-- Never tell them what to say - just show through your language
+If BOSS conversation and student is too casual/rude:
+- React professionally but signal it's inappropriate
+- "That's quite direct. In a professional setting, I'd expect more diplomatic language."
+- "I understand you disagree, but that tone isn't appropriate for our working relationship."
+- Then MODEL the right pattern: "You might say: 'I understand your concern, however...'"
 
-Step 4: IF register mismatch, react naturally + model
-- Boss noticing casual language: "That's quite direct. Let me respond: I understand..."
-- Friend noticing formal language: "Whoa, fancy! Let me put it this way: Yeah but..."
-- Stay IN CHARACTER while showing something is off
-- MODEL the appropriate pattern, DON'T name it
+If FRIEND conversation and student is too formal:
+- React casually with surprise
+- "Whoa, fancy! We're friends, you don't need to be so formal!"
+- "Haha, you sound like you're in a meeting! Just say 'yeah but...'"
 
-Step 5: CONTINUE the conversation naturally
+**STEP 3: Model Target Structure in YOUR Response**
+- ALWAYS use appropriate target structures when you respond
+- Friends: "Yeah but don't you think..." "I agree but maybe..."
+- Boss: "I understand your position, however..." "I can see that, but perhaps..."
+
+**STEP 4: Continue the Conversation**
+- Engage with their content
 - Ask follow-up questions
-- Introduce new angles
-- Keep the debate flowing
-- Reference earlier points in the conversation
+- Keep the debate going
 
-Remember: You're having a REAL conversation. React to what they say, not just their language. Let them learn patterns by seeing you use them repeatedly."""
+CONVERSATION STYLE BY RELATIONSHIP:
+
+**With Friends/Siblings (LOW POWER):**
+```
+Student: "Money is not important"
+YOU: "Yeah but don't you think you need some money to be happy? I mean, you gotta pay for food and stuff, right?"
+[Modeled: "Yeah but" + casual language]
+```
+
+**With Boss (HIGH POWER):**
+```
+Student: "I can't work late shifts"
+YOU: "I understand you have constraints, however we need to find a solution that works for the business. Perhaps we could discuss alternative arrangements?"
+[Modeled: "I understand...however" + "perhaps"]
+```
+
+CRITICAL: You are MODELING the language through your responses. Students learn by seeing you use the patterns repeatedly in natural conversation."""
 
 DIALOGUES = {
     "mobile_phones": {
@@ -314,7 +278,7 @@ DEBATE_TOPICS = [
         "topic": "Social Media",
         "power": "low",
         "ai_position": "Social media is helpful",
-        "ai_opening": "Hey! So you think social media is harmful? Yes, I know it can cause some problems, but I think it really helps people stay connected with friends and family.",
+        "ai_opening": "Hey! So you think social media is harmful? Yeah, I know it can cause some problems, but I think it really helps people stay connected with friends and family.",
         "corpus_patterns": "low_power",
         "relationship": "friends"
     },
@@ -323,7 +287,7 @@ DEBATE_TOPICS = [
         "topic": "Homework",
         "power": "low",
         "ai_position": "Homework is necessary",
-        "ai_opening": "Alright, homework debate! Yeah, I understand homework can be boring, but I think it's really important for learning. Don't you think practice helps?",
+        "ai_opening": "Alright, homework debate! I agree it can be boring, but I think it's really important for learning. Don't you think practice helps?",
         "corpus_patterns": "low_power",
         "relationship": "classmates"
     },
@@ -341,7 +305,7 @@ DEBATE_TOPICS = [
         "topic": "Remote Work Policy",
         "power": "high",
         "ai_position": "Office presence is important",
-        "ai_opening": "I can see why remote work appeals to many employees. However, I'm concerned about team collaboration and company culture. I was wondering if we could discuss a balanced approach that addresses both needs?",
+        "ai_opening": "I can see why remote work appeals to many employees. However, I'm concerned about team collaboration and company culture. Perhaps we could discuss a balanced approach that addresses both needs?",
         "corpus_patterns": "high_power",
         "relationship": "boss-employee"
     }
@@ -366,7 +330,7 @@ ROLE_PLAY_SCENARIOS = [
         "role_student": "You are an employee",
         "role_ai": "Your boss",
         "situation": "Your boss says everyone must work late shifts. You have school in the morning and can't stay late.",
-        "ai_opening": "We need more coverage for late shifts. Starting next week, all part-time employees will work until 11 PM. This includes you.",
+        "ai_opening": "I've reviewed the schedules, and I've decided that all employees need to work late shifts from now on. It's better for business, and I expect everyone to cooperate. This starts next week.",
         "corpus_patterns": "high_power",
         "relationship": "boss-employee"
     }
@@ -379,11 +343,9 @@ ROLE_PLAY_SCENARIOS = [
 def init_session_state():
     """Initialize all session state variables"""
     if 'api_key' not in st.session_state:
-        # Try to load API key from Streamlit secrets first
         try:
             st.session_state.api_key = st.secrets["OPENAI_API_KEY"]
         except (KeyError, FileNotFoundError):
-            # If not in secrets, set to None (will require manual entry)
             st.session_state.api_key = None
     if 'student_name' not in st.session_state:
         st.session_state.student_name = None
@@ -413,6 +375,10 @@ def init_session_state():
         st.session_state.transcribed_text = ""
     if 'conversation_history' not in st.session_state:
         st.session_state.conversation_history = []
+    if 'turn_count' not in st.session_state:
+        st.session_state.turn_count = 0
+    if 'scaffolding_shown' not in st.session_state:
+        st.session_state.scaffolding_shown = False
 
 def log_interaction(role: str, content: str):
     """Log an interaction"""
@@ -444,119 +410,71 @@ def save_logs() -> str:
     return json.dumps(data, indent=2)
 
 def call_gpt(user_message: str, relationship: str = "friend", topic: str = "") -> str:
-    """Call GPT API with conversational context"""
+    """Call GPT API with conversational context and proper modeling"""
     try:
         client = OpenAI(api_key=st.session_state.api_key)
         
-        # Build context based on relationship
-        if relationship == "friends":
-            role_context = """You are having a casual debate with your friend. 
+        # Build detailed context
+        if relationship == "friends" or relationship == "classmates":
+            role_context = """You are having a casual conversation with a friend/classmate.
 
-BE AUTHENTIC AND RESPONSIVE:
-- React genuinely to what they just said
-- Engage with their actual points and arguments
-- Ask follow-up questions about their reasoning
-- Show you're listening: "Oh interesting point about...", "Wait, so you're saying..."
-- Reference what they said earlier in the conversation
+MANDATORY TARGET STRUCTURES YOU MUST USE IN YOUR RESPONSES:
+- Start with: "Yeah but...", "I agree but...", "True, but...", "I see that, but..."
+- Keep it short and casual (2-3 sentences)
+- Add maybe/I think if appropriate
+- Example: "Yeah but don't you think you need money to be happy? I mean, you gotta pay for stuff, right?"
 
-LANGUAGE STYLE:
-- Be casual: "yeah but", "come on", "I get that, but"
-- Short, punchy responses (2-3 sentences max)
-- Show emotion naturally
-- Use contractions freely
+REACT TO INAPPROPRIATE REGISTER:
+If they're too formal (e.g., "I respectfully disagree", elaborate language):
+- React: "Whoa, fancy! We're friends, you don't need to be so formal!"
+- Then model casual: "Just say something like: Yeah but..."
+- Continue conversation
 
-FEEDBACK APPROACH:
-- If they're too formal → "Haha, relax! This isn't a presentation. Let me put it this way: yeah but..."
-- If they're appropriate → Just continue naturally, modeling good patterns in YOUR speech"""
-
-        elif relationship == "classmates":
-            role_context = """You are having a friendly debate with a classmate.
-
-BE AUTHENTIC AND RESPONSIVE:
-- React to their actual arguments
-- Build on what they said
-- Challenge their reasoning naturally
-- "That's an interesting point, but have you considered..."
-
-LANGUAGE STYLE:
-- Friendly but direct
-- "I see what you mean, but...", "yeah but..."
-- Conversational tone
-- 2-3 sentences
-
-FEEDBACK APPROACH:
-- If too formal → "Hey, we're classmates, not in a meeting! I'd just say: yeah but..."
-- If appropriate → Continue naturally"""
+If they're appropriate:
+- Just continue naturally using casual patterns"""
 
         elif relationship == "boss-employee":
-            role_context = """You are the employee's boss having a professional discussion.
+            role_context = """You are the student's BOSS in a professional setting.
 
-BE AUTHENTIC AND RESPONSIVE:
-- Address their concerns seriously
-- Respond to their specific points
-- Acknowledge valid concerns: "I appreciate you raising that issue..."
-- Probe deeper: "Can you elaborate on your concerns about..."
+MANDATORY TARGET STRUCTURES YOU MUST USE IN YOUR RESPONSES:
+- Start with: "I understand..., however...", "I can see your point, but perhaps...", "I appreciate that, though..."
+- Be diplomatic and elaborate (3-4 sentences)
+- Add: "perhaps", "maybe", "I think"
+- Example: "I understand you have scheduling constraints. However, we need to find a solution that works for the business. Perhaps we could discuss alternative arrangements?"
 
-LANGUAGE STYLE:
-- Professional and diplomatic
-- "I understand your concern, however..."
-- "I can see your point, but perhaps..."
-- Measured, thoughtful responses (3-4 sentences)
+REACT TO INAPPROPRIATE REGISTER:
+If they're too casual/rude (e.g., "nah", "no", very short/blunt):
+- React professionally: "That's quite direct. In a professional setting, I'd expect more diplomatic language."
+- Then model formal: "You might say: 'I understand your concern, however...'"
+- Continue conversation
 
-FEEDBACK APPROACH:
-- If too casual → "That's quite direct. Let me respond professionally: I understand your position, however..."
-- If appropriate → Continue naturally, maintaining professional tone"""
+If they're appropriate:
+- Just continue naturally using formal patterns"""
         else:
-            role_context = "You are having a conversation with the student."
+            role_context = ""
         
-        # Enhanced context message
+        # Context message
         context_message = f"""{role_context}
 
-CURRENT DEBATE TOPIC: {topic}
+CURRENT TOPIC: {topic}
 
-🎯 CRITICAL INSTRUCTIONS:
+CRITICAL INSTRUCTIONS:
 
-1. RESPOND TO THEIR ACTUAL CONTENT FIRST
-   - What did they just say? Engage with it!
-   - "So you think [their point]? Here's why I disagree..."
-   - Build on their reasoning before countering
-   - Reference earlier points in the conversation if relevant
+1. ALWAYS use the appropriate target structures in YOUR responses
+2. React naturally if their register doesn't match the relationship
+3. Engage with their actual content and ideas
+4. Ask follow-up questions
+5. Model the language through your responses - don't teach it explicitly
 
-2. MODEL APPROPRIATE LANGUAGE (Don't teach it)
-   - Use the right patterns for this relationship in YOUR response
-   - Let them learn by seeing, not by being told
-   - Never say "You should say..." or "Try using..."
-
-3. KEEP IT CONVERSATIONAL
-   - This is a real debate, not a language lesson
-   - React naturally, like a real person would
-   - Keep responses concise
-
-4. IMPLICIT FEEDBACK (only when needed)
-   - If register is wrong, react naturally as that person would
-   - Then model the right pattern in your response
-   - Continue the debate
-
-EXAMPLE GOOD RESPONSES:
-
-Friend + Student says: "I think social media causes mental health problems"
-✅ YOU: "Yeah but don't you think that's more about how people use it? Like, I use social media to keep in touch with my family overseas, and it actually makes me happier. What about the positive connections?"
-
-Boss + Student says: "nah I don't wanna work late"  
-✅ YOU: "That's quite direct. Let me respond: I understand you have scheduling constraints. However, we need to discuss how to meet our coverage needs. What specific concerns do you have about the late shift schedule?"
-
-Friend + Student says: "I respectfully disagree with your assessment"
-✅ YOU: "Haha, 'respectfully disagree'? Dude, we're friends! Just say you don't agree! But okay, what's your take on it?"
-
-NOW RESPOND TO WHAT THEY JUST SAID."""
+NOW RESPOND TO WHAT THEY JUST SAID, using the appropriate target structures."""
         
-        # Build messages for API
+        # Build messages
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "system", "content": context_message}
         ]
         
-        # Add conversation history (this is KEY - GPT sees the whole conversation)
+        # Add conversation history
         messages.extend(st.session_state.conversation_history)
         
         # Add current message
@@ -587,11 +505,9 @@ def transcribe_audio(audio_bytes: bytes) -> str:
     try:
         client = OpenAI(api_key=st.session_state.api_key)
         
-        # Create a file-like object from bytes
         audio_file = io.BytesIO(audio_bytes)
         audio_file.name = "recording.wav"
         
-        # Call Whisper API
         transcript = client.audio.transcriptions.create(
             model="whisper-1",
             file=audio_file
@@ -622,31 +538,73 @@ def show_context_reminder(relationship: str, power: str):
     st.markdown(f'<div class="context-reminder">{reminder_text}</div>', unsafe_allow_html=True)
 
 def display_conversation_history():
-    """Display the conversation history in chat format"""
-    for msg in st.session_state.conversation_history:
+    """Display the conversation history in chat format with better visual flow"""
+    # Create a scrollable container for the conversation
+    st.markdown('<div style="max-height: 400px; overflow-y: auto; padding: 1rem; background-color: #fafafa; border-radius: 10px; margin: 1rem 0;">', unsafe_allow_html=True)
+    
+    for i, msg in enumerate(st.session_state.conversation_history):
         if msg["role"] == "user":
-            st.markdown(f'<div class="chat-message-user"><strong>You:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="chat-message-user"><strong>You:</strong><br>{msg["content"]}</div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div class="chat-message-assistant"><strong>Partner:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="chat-message-assistant"><strong>Partner:</strong><br>{msg["content"]}</div>', unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
+
+def show_scaffolding(power_level: str):
+    """Show scaffolding at Turn 1 of each scenario"""
+    st.markdown("""
+    <div class="scaffolding-box">
+    <h4>💡 Let me show you how others disagreed in similar situations...</h4>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("**Examples from real conversations:**")
+    
+    if power_level == "low":
+        show_corpus_examples([
+            "Yeah but there are some disadvantages like er...",
+            "Well I agree but maybe we can develop more jobs",
+            "yeah I agree but I still the problem is that..."
+        ], "")
+        st.markdown("""
+        **Notice how they start:**
+        - "Yeah but..."
+        - "I agree but..."
+        - They acknowledge first, THEN disagree
+        
+        Since you're talking with a friend/classmate (casual), you might try:
+        - Starting with "Yeah but..."
+        - Or "I agree... but..."
+        """)
+    else:
+        show_corpus_examples([
+            "I can see their point. It is sometimes annoying. But I don't agree that they should be banned.",
+            "I can understand your opinion erm but I was still wondering...",
+            "I understand his situation but I'm not sure if I should do it"
+        ], "")
+        st.markdown("""
+        **Notice the differences from casual conversations:**
+        - More elaborate: "I can understand...", "I can see..."
+        - Acknowledge the other person's point FIRST
+        - Use softer language: "I'm not sure", "maybe", "perhaps"
+        
+        This is because you're talking to your BOSS (more formal, more careful).
+        """)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
 def voice_or_text_input(input_label: str, key_prefix: str, height: int = 100):
-    """
-    Display both voice recording and text input options for Activity 3
-    Returns tuple: (input_text, input_method)
-    """
+    """Display both voice recording and text input options"""
     st.markdown(f"""
     <div class="voice-recording-box">
     <strong>🎤 You can either speak OR type your response:</strong>
     </div>
     """, unsafe_allow_html=True)
     
-    # Create tabs for voice and text input
     tab1, tab2 = st.tabs(["🎤 Voice Recording", "⌨️ Text Input"])
     
     with tab1:
         st.info("Click the microphone button below to start recording. Click again to stop.")
         
-        # Audio recorder
         audio_bytes = audio_recorder(
             text="",
             recording_color="#e74c3c",
@@ -654,8 +612,6 @@ def voice_or_text_input(input_label: str, key_prefix: str, height: int = 100):
             icon_size="3x",
             key=f"audio_{key_prefix}"
         )
-        
-        transcribed_text = ""
         
         if audio_bytes and audio_bytes != st.session_state.last_audio_bytes:
             st.session_state.last_audio_bytes = audio_bytes
@@ -669,12 +625,9 @@ def voice_or_text_input(input_label: str, key_prefix: str, height: int = 100):
                 st.markdown(f"**You said:** {transcribed_text}")
                 return transcribed_text, "voice"
         
-        # Show previously transcribed text if exists and auto-return it
         if st.session_state.transcribed_text:
             if not (audio_bytes and audio_bytes != st.session_state.last_audio_bytes):
-                # Not currently transcribing, show what's ready
                 st.info(f"📝 **Ready to send:** {st.session_state.transcribed_text}")
-            # Automatically return the transcribed text so Send button can use it
             return st.session_state.transcribed_text, "voice"
     
     with tab2:
@@ -700,6 +653,13 @@ def process_welcome():
         <li><strong>Analyze</strong> real conversations from native speakers</li>
         <li><strong>Practice</strong> disagreeing in different situations</li>
     </ol>
+    
+    <p><strong>IMPORTANT: You can control our session!</strong></p>
+    <ul>
+        <li>Click "Need Help?" anytime to see examples</li>
+        <li>You can go back and try different scenarios</li>
+        <li>Take your time!</li>
+    </ul>
     
     <p>Ready to start? Let's begin with Activity 1!</p>
     </div>
@@ -838,7 +798,7 @@ def process_activity1():
             st.rerun()
 
 def process_activity2():
-    """Process Activity 2: Debate practice with friend-level topic"""
+    """Process Activity 2: Debate practice"""
     
     if st.session_state.current_state == "activity2_intro":
         st.markdown('<div class="activity-header">💭 Activity 2: Practice Debate with Me!</div>', unsafe_allow_html=True)
@@ -851,13 +811,7 @@ def process_activity2():
         
         <p><strong>✨ You can record your voice or type!</strong></p>
         
-        <p>You can choose between:</p>
-        <ul>
-            <li><strong>Casual debates</strong> with friends/classmates</li>
-            <li><strong>Professional debates</strong> with your boss</li>
-        </ul>
-        
-        <p>I'll disagree with you sometimes. You disagree with me too!</p>
+        <p>Choose a debate topic below. Don't worry - you can come back and try different ones!</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -873,6 +827,8 @@ def process_activity2():
                 st.session_state.transcribed_text = ""
                 st.session_state.last_audio_bytes = None
                 st.session_state.debate_turn = 1
+                st.session_state.turn_count = 0
+                st.session_state.scaffolding_shown = False
                 st.rerun()
         with col2:
             if st.button("📚 Homework\n(Chat with your classmate)", key="debate_homework"):
@@ -882,6 +838,8 @@ def process_activity2():
                 st.session_state.transcribed_text = ""
                 st.session_state.last_audio_bytes = None
                 st.session_state.debate_turn = 1
+                st.session_state.turn_count = 0
+                st.session_state.scaffolding_shown = False
                 st.rerun()
         
         st.markdown("---")
@@ -895,6 +853,8 @@ def process_activity2():
                 st.session_state.transcribed_text = ""
                 st.session_state.last_audio_bytes = None
                 st.session_state.debate_turn = 1
+                st.session_state.turn_count = 0
+                st.session_state.scaffolding_shown = False
                 st.rerun()
         with col4:
             if st.button("🏢 Remote Work Policy\n(Talk with your boss)", key="debate_remote"):
@@ -904,6 +864,8 @@ def process_activity2():
                 st.session_state.transcribed_text = ""
                 st.session_state.last_audio_bytes = None
                 st.session_state.debate_turn = 1
+                st.session_state.turn_count = 0
+                st.session_state.scaffolding_shown = False
                 st.rerun()
     
     elif st.session_state.current_state == "debate_chat":
@@ -922,16 +884,21 @@ def process_activity2():
         </div>
         """, unsafe_allow_html=True)
         
-        # Show opening if first turn AND conversation history is empty
+        # Show opening
         if len(st.session_state.conversation_history) == 0:
-            # Add opening to conversation history so it displays
             st.session_state.conversation_history.append({
                 "role": "assistant", 
                 "content": topic['ai_opening']
             })
             log_interaction("assistant", topic['ai_opening'])
         
-        # Display conversation history
+        # Show scaffolding at Turn 1 (BEFORE displaying conversation so it appears above input)
+        if st.session_state.turn_count == 1 and not st.session_state.scaffolding_shown:
+            show_scaffolding(topic['power'])
+            st.session_state.scaffolding_shown = True
+            log_autonomy("scaffolding_turn1")
+        
+        # Display conversation (THIS SHOWS THE CHAT HISTORY)
         st.markdown("### 💬 Conversation:")
         display_conversation_history()
         
@@ -940,7 +907,7 @@ def process_activity2():
         st.markdown("### Your Turn:")
         user_response, input_method = voice_or_text_input("Your response:", f"debate_{st.session_state.debate_turn}")
         
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             send_button = st.button("📤 Send", key=f"send_{st.session_state.debate_turn}", type="primary")
         
@@ -950,30 +917,27 @@ def process_activity2():
         with col3:
             end_button = st.button("✅ End Debate", key=f"end_{st.session_state.debate_turn}")
         
-        # Handle Send button
+        with col4:
+            back_button = st.button("🔙 Try Another", key=f"back_{st.session_state.debate_turn}")
+        
+        # Handle buttons
         if send_button:
             if user_response:
-                # Log user message
-                log_interaction("user", f"[{input_method.upper()}] {user_response}")
+                log_interaction("user", f"[{input_method.upper()}] Turn {st.session_state.turn_count + 1}: {user_response}")
                 
-                # Get AI response
                 with st.spinner("💭 Thinking..."):
                     ai_response = call_gpt(user_response, topic['relationship'], topic['topic'])
                     log_interaction("assistant", ai_response)
                 
-                # Clear voice recording state after sending
                 st.session_state.transcribed_text = ""
                 st.session_state.last_audio_bytes = None
-                
-                # Increment turn counter
                 st.session_state.debate_turn += 1
+                st.session_state.turn_count += 1
                 
-                # Rerun to show the new message
                 st.rerun()
             else:
                 st.warning("⚠️ Please record your voice or type a response first!")
         
-        # Handle Help button
         if help_button:
             log_autonomy("examples_request")
             examples_key = topic['corpus_patterns']
@@ -982,9 +946,15 @@ def process_activity2():
             st.markdown("### 📚 Example Patterns:")
             show_corpus_examples(CORPUS_EXAMPLES[examples_key], example_title)
         
-        # Handle End button
         if end_button:
             st.session_state.current_state = "debate_complete"
+            st.rerun()
+        
+        if back_button:
+            st.session_state.current_state = "activity2_intro"
+            st.session_state.conversation_history = []
+            st.session_state.turn_count = 0
+            st.session_state.scaffolding_shown = False
             st.rerun()
     
     elif st.session_state.current_state == "debate_complete":
@@ -994,28 +964,38 @@ def process_activity2():
         <div class="success-box">
         <h3>Great debate!</h3>
         
-        <p>You practiced disagreeing in a natural conversation, using voice or text input!</p>
+        <p>You practiced disagreeing in a natural conversation!</p>
         
         <p>Next, you'll try role-play scenarios with different relationships!</p>
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button("Continue to Activity 3"):
-            st.session_state.current_activity = "activity3"
-            st.session_state.current_state = "activity3_intro"
-            st.session_state.conversation_history = []
-            st.session_state.messages = []
-            st.session_state.transcribed_text = ""
-            st.session_state.last_audio_bytes = None
-            st.session_state.debate_turn = 1
-            log_interaction("system", "Completed Activity 2, Started Activity 3")
-            st.rerun()
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Continue to Activity 3"):
+                st.session_state.current_activity = "activity3"
+                st.session_state.current_state = "activity3_intro"
+                st.session_state.conversation_history = []
+                st.session_state.transcribed_text = ""
+                st.session_state.last_audio_bytes = None
+                st.session_state.debate_turn = 1
+                st.session_state.turn_count = 0
+                st.session_state.scaffolding_shown = False
+                log_interaction("system", "Completed Activity 2, Started Activity 3")
+                st.rerun()
+        with col2:
+            if st.button("Try Another Debate Topic"):
+                st.session_state.current_state = "activity2_intro"
+                st.session_state.conversation_history = []
+                st.session_state.turn_count = 0
+                st.session_state.scaffolding_shown = False
+                st.rerun()
 
 def process_activity3():
-    """Process Activity 3: Role-play scenarios with VOICE RECORDING and natural conversation"""
+    """Process Activity 3: Role-play scenarios"""
     
     if st.session_state.current_state == "activity3_intro":
-        st.markdown('<div class="activity-header">🎭 Activity 3: Real-Life Role-Play (with Voice!)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="activity-header">🎭 Activity 3: Real-Life Role-Play</div>', unsafe_allow_html=True)
         
         st.markdown("""
         <div class="info-box">
@@ -1029,24 +1009,33 @@ def process_activity3():
         
         <p><strong>✨ You can record your voice or type!</strong></p>
         
-        <p>Try to disagree politely in each situation. Think about what you discovered in Activities 1 and 2!</p>
+        <p>Try to disagree politely in each situation. Remember what you discovered!</p>
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button("Start Scenario 1"):
-            st.session_state.current_state = "scenario1_chat"
-            st.session_state.current_scenario = ROLE_PLAY_SCENARIOS[0]
-            st.session_state.conversation_history = []
-            st.session_state.transcribed_text = ""
-            st.session_state.last_audio_bytes = None
-            st.rerun()
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Start Scenario 1 (Friend)"):
+                st.session_state.current_state = "scenario1_chat"
+                st.session_state.current_scenario = ROLE_PLAY_SCENARIOS[0]
+                st.session_state.conversation_history = []
+                st.session_state.turn_count = 0
+                st.session_state.scaffolding_shown = False
+                st.rerun()
+        with col2:
+            if st.button("Start Scenario 2 (Boss)"):
+                st.session_state.current_state = "scenario2_chat"
+                st.session_state.current_scenario = ROLE_PLAY_SCENARIOS[1]
+                st.session_state.conversation_history = []
+                st.session_state.turn_count = 0
+                st.session_state.scaffolding_shown = False
+                st.rerun()
     
     elif st.session_state.current_state == "scenario1_chat":
         scenario = ROLE_PLAY_SCENARIOS[0]
         
         st.markdown('<div class="activity-header">🎭 Scenario 1: Talking with a friend</div>', unsafe_allow_html=True)
         
-        # Show context reminder
         show_context_reminder(scenario['relationship'], scenario['power'])
         
         st.markdown(f"""
@@ -1057,7 +1046,7 @@ def process_activity3():
         </div>
         """, unsafe_allow_html=True)
         
-        # Show opening if first message
+        # Show opening
         if len(st.session_state.conversation_history) == 0:
             st.session_state.conversation_history.append({
                 "role": "assistant",
@@ -1065,16 +1054,20 @@ def process_activity3():
             })
             log_interaction("assistant", scenario['ai_opening'])
         
-        # Display conversation history
         st.markdown("### 💬 Conversation:")
         display_conversation_history()
         
-        # Input area
+        # Show scaffolding at Turn 1
+        if st.session_state.turn_count == 1 and not st.session_state.scaffolding_shown:
+            show_scaffolding(scenario['power'])
+            st.session_state.scaffolding_shown = True
+            log_autonomy("scaffolding_turn1_scenario1")
+        
         st.markdown("---")
         st.markdown("### Your Turn:")
         user_response, input_method = voice_or_text_input("Your response:", f"scenario1_{len(st.session_state.conversation_history)}")
         
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             send_button = st.button("📤 Send", key=f"send_s1_{len(st.session_state.conversation_history)}", type="primary")
         
@@ -1084,34 +1077,40 @@ def process_activity3():
         with col3:
             end_button = st.button("✅ End Scenario", key=f"end_s1_{len(st.session_state.conversation_history)}")
         
-        # Handle Send button
+        with col4:
+            back_button = st.button("🔙 Try Another", key=f"back_s1_{len(st.session_state.conversation_history)}")
+        
         if send_button:
             if user_response:
-                log_interaction("user", f"[{input_method.upper()}] {user_response}")
+                log_interaction("user", f"[{input_method.upper()}] Turn {st.session_state.turn_count + 1}: {user_response}")
                 
-                # Get AI response
                 with st.spinner("💭 Responding..."):
                     ai_response = call_gpt(user_response, scenario['relationship'], "phone usage and health")
                     log_interaction("assistant", ai_response)
                 
-                # Clear voice recording state
                 st.session_state.transcribed_text = ""
                 st.session_state.last_audio_bytes = None
+                st.session_state.turn_count += 1
                 
                 st.rerun()
             else:
                 st.warning("⚠️ Please record your voice or type a response first!")
         
-        # Handle Help button
         if help_button:
             log_autonomy("examples_request")
             st.markdown("---")
             st.markdown("### 📚 Example Patterns:")
             show_corpus_examples(CORPUS_EXAMPLES["low_power"], "Casual disagreement patterns:")
         
-        # Handle End button
         if end_button:
             st.session_state.current_state = "scenario1_complete"
+            st.rerun()
+        
+        if back_button:
+            st.session_state.current_state = "activity3_intro"
+            st.session_state.conversation_history = []
+            st.session_state.turn_count = 0
+            st.session_state.scaffolding_shown = False
             st.rerun()
     
     elif st.session_state.current_state == "scenario1_complete":
@@ -1121,24 +1120,38 @@ def process_activity3():
         <div class="success-box">
         <h3>Nice conversation with your friend!</h3>
         
-        <p>Next, let's try a more formal situation with your boss!</p>
+        <p>Would you like to try the boss scenario, or try this one again?</p>
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button("Continue to Scenario 2"):
-            st.session_state.current_state = "scenario2_chat"
-            st.session_state.current_scenario = ROLE_PLAY_SCENARIOS[1]
-            st.session_state.conversation_history = []
-            st.session_state.transcribed_text = ""
-            st.session_state.last_audio_bytes = None
-            st.rerun()
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Continue to Scenario 2 (Boss)"):
+                st.session_state.current_state = "scenario2_chat"
+                st.session_state.current_scenario = ROLE_PLAY_SCENARIOS[1]
+                st.session_state.conversation_history = []
+                st.session_state.transcribed_text = ""
+                st.session_state.last_audio_bytes = None
+                st.session_state.turn_count = 0
+                st.session_state.scaffolding_shown = False
+                st.rerun()
+        with col2:
+            if st.button("Try Scenario 1 Again"):
+                st.session_state.current_state = "scenario1_chat"
+                st.session_state.conversation_history = []
+                st.session_state.turn_count = 0
+                st.session_state.scaffolding_shown = False
+                st.rerun()
+        with col3:
+            if st.button("Go to Activity 3 Menu"):
+                st.session_state.current_state = "activity3_intro"
+                st.rerun()
     
     elif st.session_state.current_state == "scenario2_chat":
         scenario = ROLE_PLAY_SCENARIOS[1]
         
         st.markdown('<div class="activity-header">🎭 Scenario 2: Talking with your boss</div>', unsafe_allow_html=True)
         
-        # Show context reminder
         show_context_reminder(scenario['relationship'], scenario['power'])
         
         st.markdown(f"""
@@ -1149,7 +1162,7 @@ def process_activity3():
         </div>
         """, unsafe_allow_html=True)
         
-        # Show opening if first message
+        # Show opening
         if len(st.session_state.conversation_history) == 0:
             st.session_state.conversation_history.append({
                 "role": "assistant",
@@ -1157,16 +1170,20 @@ def process_activity3():
             })
             log_interaction("assistant", scenario['ai_opening'])
         
-        # Display conversation history
         st.markdown("### 💬 Conversation:")
         display_conversation_history()
         
-        # Input area
+        # Show scaffolding at Turn 1
+        if st.session_state.turn_count == 1 and not st.session_state.scaffolding_shown:
+            show_scaffolding(scenario['power'])
+            st.session_state.scaffolding_shown = True
+            log_autonomy("scaffolding_turn1_scenario2")
+        
         st.markdown("---")
         st.markdown("### Your Turn:")
         user_response, input_method = voice_or_text_input("Your response:", f"scenario2_{len(st.session_state.conversation_history)}")
         
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             send_button = st.button("📤 Send", key=f"send_s2_{len(st.session_state.conversation_history)}", type="primary")
         
@@ -1176,34 +1193,40 @@ def process_activity3():
         with col3:
             end_button = st.button("✅ End Scenario", key=f"end_s2_{len(st.session_state.conversation_history)}")
         
-        # Handle Send button
+        with col4:
+            back_button = st.button("🔙 Try Another", key=f"back_s2_{len(st.session_state.conversation_history)}")
+        
         if send_button:
             if user_response:
-                log_interaction("user", f"[{input_method.upper()}] {user_response}")
+                log_interaction("user", f"[{input_method.upper()}] Turn {st.session_state.turn_count + 1}: {user_response}")
                 
-                # Get AI response
                 with st.spinner("💭 Responding..."):
                     ai_response = call_gpt(user_response, scenario['relationship'], "late shift schedule vs school")
                     log_interaction("assistant", ai_response)
                 
-                # Clear voice recording state
                 st.session_state.transcribed_text = ""
                 st.session_state.last_audio_bytes = None
+                st.session_state.turn_count += 1
                 
                 st.rerun()
             else:
                 st.warning("⚠️ Please record your voice or type a response first!")
         
-        # Handle Help button
         if help_button:
             log_autonomy("examples_request")
             st.markdown("---")
             st.markdown("### 📚 Example Patterns:")
             show_corpus_examples(CORPUS_EXAMPLES["high_power"], "Formal disagreement patterns:")
         
-        # Handle End button
         if end_button:
             st.session_state.current_state = "scenario2_complete"
+            st.rerun()
+        
+        if back_button:
+            st.session_state.current_state = "activity3_intro"
+            st.session_state.conversation_history = []
+            st.session_state.turn_count = 0
+            st.session_state.scaffolding_shown = False
             st.rerun()
     
     elif st.session_state.current_state == "scenario2_complete":
@@ -1213,13 +1236,26 @@ def process_activity3():
         <div class="success-box">
         <h3>Professional conversation complete!</h3>
         
-        <p>You've now practiced disagreeing in both casual and formal situations.</p>
+        <p>Would you like to complete the session or try another scenario?</p>
         </div>
         """, unsafe_allow_html=True)
         
-        if st.button("Complete Session"):
-            st.session_state.current_state = "reflection"
-            st.rerun()
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Complete Session"):
+                st.session_state.current_state = "reflection"
+                st.rerun()
+        with col2:
+            if st.button("Try Scenario 2 Again"):
+                st.session_state.current_state = "scenario2_chat"
+                st.session_state.conversation_history = []
+                st.session_state.turn_count = 0
+                st.session_state.scaffolding_shown = False
+                st.rerun()
+        with col3:
+            if st.button("Go to Activity 3 Menu"):
+                st.session_state.current_state = "activity3_intro"
+                st.rerun()
     
     elif st.session_state.current_state == "reflection":
         st.markdown('<div class="activity-header">🎓 Session Complete!</div>', unsafe_allow_html=True)
@@ -1251,12 +1287,10 @@ def process_activity3():
             if reflection:
                 log_interaction("user", f"REFLECTION: {reflection}")
                 
-                # Generate logs
                 logs_json = save_logs()
                 
                 st.success("Thank you for participating!")
                 
-                # Provide download button
                 st.download_button(
                     label="📥 Download Your Session Log",
                     data=logs_json,
@@ -1280,11 +1314,10 @@ def main():
     """Main Streamlit app"""
     init_session_state()
     
-    # Sidebar for admin/instructor
+    # Sidebar
     with st.sidebar:
         st.title("⚙️ Instructor Settings")
         
-        # Check if API key is loaded from secrets
         api_from_secrets = False
         try:
             if st.secrets.get("OPENAI_API_KEY"):
@@ -1294,52 +1327,34 @@ def main():
         
         if api_from_secrets and st.session_state.api_key:
             st.success("✅ API Key loaded from secrets")
-            st.info("Students won't see this - key is secure!")
         else:
             api_key_input = st.text_input("OpenAI API Key:", type="password")
             if api_key_input:
                 st.session_state.api_key = api_key_input
                 st.success("API Key configured!")
         
-        if st.session_state.api_key:
-            st.info("✅ Chatbot is ready for students!")
-        else:
-            st.warning("⚠️ API key required to start")
-        
         st.markdown("---")
         st.markdown("**Session Info:**")
         st.markdown(f"Student: {st.session_state.student_name or 'Not set'}")
         st.markdown(f"Activity: {st.session_state.current_activity or 'Welcome'}")
         st.markdown(f"State: {st.session_state.current_state}")
+        st.markdown(f"Turn Count: {st.session_state.turn_count}")
         
-        # Debug Mode
-        st.markdown("---")
-        st.markdown("**Debug Mode:**")
         if st.checkbox("Show conversation history"):
             st.json(st.session_state.conversation_history)
         
-        if st.checkbox("Show last messages"):
-            if st.session_state.conversation_history:
-                st.markdown("**Recent conversation:**")
-                for msg in st.session_state.conversation_history[-4:]:  # Show last 4 messages
-                    st.text(f"{msg['role']}: {msg['content'][:100]}...")
-        
         if st.button("Reset Session"):
             for key in list(st.session_state.keys()):
-                # Don't delete the API key if it came from secrets
                 if key == 'api_key' and api_from_secrets:
                     continue
                 del st.session_state[key]
-            # Re-initialize to reload API key from secrets
             init_session_state()
             st.rerun()
     
-    # Check if API key is configured
     if not st.session_state.api_key:
-        st.error("⚠️ Instructor: Please configure the OpenAI API key in the sidebar to enable the chatbot.")
+        st.error("⚠️ Instructor: Please configure the OpenAI API key in the sidebar.")
         return
     
-    # Get student name if not set
     if not st.session_state.student_name:
         st.markdown('<div class="main-header">💬 Welcome to Discussion Partner!</div>', unsafe_allow_html=True)
         st.markdown("Please enter your name to begin:")
