@@ -910,51 +910,35 @@ def process_activity2():
         
         st.markdown("---")
         
-        # Input area
+        # Input area - SIMPLIFIED
         st.markdown("---")
         st.markdown("### Your Turn:")
-        user_response, input_method = voice_or_text_input("Your response:", f"debate_{st.session_state.debate_turn}")
         
-        col1, col2, col3, col4 = st.columns(4)
+        # Simple text input using Streamlit's chat_input (the proper way!)
+        user_input = st.chat_input("Type your response here...", key=f"chat_input_{st.session_state.debate_turn}")
+        
+        # Buttons below
+        col1, col2, col3 = st.columns(3)
         with col1:
-            send_button = st.button("📤 Send", key=f"send_{st.session_state.debate_turn}", type="primary")
-        
-        with col2:
             help_button = st.button("❓ Need Help?", key=f"help_{st.session_state.debate_turn}")
-        
-        with col3:
+        with col2:
             end_button = st.button("✅ End Debate", key=f"end_{st.session_state.debate_turn}")
-        
-        with col4:
+        with col3:
             back_button = st.button("🔙 Try Another", key=f"back_{st.session_state.debate_turn}")
         
-        # Handle buttons
-        if send_button:
-            if user_response:
-                # Debug
-                st.write(f"DEBUG: Sending message: {user_response[:50]}...")
-                st.write(f"DEBUG: Current history length: {len(st.session_state.conversation_history)}")
-                
-                log_interaction("user", f"[{input_method.upper()}] Turn {st.session_state.turn_count + 1}: {user_response}")
-                
-                with st.spinner("💭 Thinking..."):
-                    ai_response = call_gpt(user_response, topic['relationship'], topic['topic'])
-                    log_interaction("assistant", ai_response)
-                
-                # Debug
-                st.write(f"DEBUG: After GPT, history length: {len(st.session_state.conversation_history)}")
-                st.write(f"DEBUG: AI response: {ai_response[:50]}...")
-                
-                st.session_state.transcribed_text = ""
-                st.session_state.last_audio_bytes = None
-                st.session_state.debate_turn += 1
-                st.session_state.turn_count += 1
-                
-                # Force immediate update
-                st.success("✅ Message sent! Refreshing...")
-                st.rerun()
-            else:
-                st.warning("⚠️ Please record your voice or type a response first!")
+        # Handle chat input (st.chat_input automatically submits on Enter)
+        if user_input:
+            # User sent a message!
+            log_interaction("user", f"Turn {st.session_state.turn_count + 1}: {user_input}")
+            
+            with st.spinner("💭 Thinking..."):
+                ai_response = call_gpt(user_input, topic['relationship'], topic['topic'])
+                log_interaction("assistant", ai_response)
+            
+            st.session_state.debate_turn += 1
+            st.session_state.turn_count += 1
+            
+            st.rerun()
         
         if help_button:
             log_autonomy("examples_request")
@@ -1084,36 +1068,27 @@ def process_activity3():
         
         st.markdown("---")
         st.markdown("### Your Turn:")
-        user_response, input_method = voice_or_text_input("Your response:", f"scenario1_{len(st.session_state.conversation_history)}")
         
-        col1, col2, col3, col4 = st.columns(4)
+        # Simple chat input
+        user_input = st.chat_input("Type your response...", key=f"scenario1_{st.session_state.turn_count}")
+        
+        col1, col2, col3 = st.columns(3)
         with col1:
-            send_button = st.button("📤 Send", key=f"send_s1_{len(st.session_state.conversation_history)}", type="primary")
-        
+            help_button = st.button("❓ Need Help?", key=f"help_s1_{st.session_state.turn_count}")
         with col2:
-            help_button = st.button("❓ Need Help?", key=f"help_s1_{len(st.session_state.conversation_history)}")
-        
+            end_button = st.button("✅ End Scenario", key=f"end_s1_{st.session_state.turn_count}")
         with col3:
-            end_button = st.button("✅ End Scenario", key=f"end_s1_{len(st.session_state.conversation_history)}")
+            back_button = st.button("🔙 Try Another", key=f"back_s1_{st.session_state.turn_count}")
         
-        with col4:
-            back_button = st.button("🔙 Try Another", key=f"back_s1_{len(st.session_state.conversation_history)}")
-        
-        if send_button:
-            if user_response:
-                log_interaction("user", f"[{input_method.upper()}] Turn {st.session_state.turn_count + 1}: {user_response}")
-                
-                with st.spinner("💭 Responding..."):
-                    ai_response = call_gpt(user_response, scenario['relationship'], "phone usage and health")
-                    log_interaction("assistant", ai_response)
-                
-                st.session_state.transcribed_text = ""
-                st.session_state.last_audio_bytes = None
-                st.session_state.turn_count += 1
-                
-                st.rerun()
-            else:
-                st.warning("⚠️ Please record your voice or type a response first!")
+        if user_input:
+            log_interaction("user", f"Turn {st.session_state.turn_count + 1}: {user_input}")
+            
+            with st.spinner("💭 Responding..."):
+                ai_response = call_gpt(user_input, scenario['relationship'], "phone usage and health")
+                log_interaction("assistant", ai_response)
+            
+            st.session_state.turn_count += 1
+            st.rerun()
         
         if help_button:
             log_autonomy("examples_request")
@@ -1201,36 +1176,27 @@ def process_activity3():
         
         st.markdown("---")
         st.markdown("### Your Turn:")
-        user_response, input_method = voice_or_text_input("Your response:", f"scenario2_{len(st.session_state.conversation_history)}")
         
-        col1, col2, col3, col4 = st.columns(4)
+        # Simple chat input
+        user_input = st.chat_input("Type your response...", key=f"scenario2_{st.session_state.turn_count}")
+        
+        col1, col2, col3 = st.columns(3)
         with col1:
-            send_button = st.button("📤 Send", key=f"send_s2_{len(st.session_state.conversation_history)}", type="primary")
-        
+            help_button = st.button("❓ Need Help?", key=f"help_s2_{st.session_state.turn_count}")
         with col2:
-            help_button = st.button("❓ Need Help?", key=f"help_s2_{len(st.session_state.conversation_history)}")
-        
+            end_button = st.button("✅ End Scenario", key=f"end_s2_{st.session_state.turn_count}")
         with col3:
-            end_button = st.button("✅ End Scenario", key=f"end_s2_{len(st.session_state.conversation_history)}")
+            back_button = st.button("🔙 Try Another", key=f"back_s2_{st.session_state.turn_count}")
         
-        with col4:
-            back_button = st.button("🔙 Try Another", key=f"back_s2_{len(st.session_state.conversation_history)}")
-        
-        if send_button:
-            if user_response:
-                log_interaction("user", f"[{input_method.upper()}] Turn {st.session_state.turn_count + 1}: {user_response}")
-                
-                with st.spinner("💭 Responding..."):
-                    ai_response = call_gpt(user_response, scenario['relationship'], "late shift schedule vs school")
-                    log_interaction("assistant", ai_response)
-                
-                st.session_state.transcribed_text = ""
-                st.session_state.last_audio_bytes = None
-                st.session_state.turn_count += 1
-                
-                st.rerun()
-            else:
-                st.warning("⚠️ Please record your voice or type a response first!")
+        if user_input:
+            log_interaction("user", f"Turn {st.session_state.turn_count + 1}: {user_input}")
+            
+            with st.spinner("💭 Responding..."):
+                ai_response = call_gpt(user_input, scenario['relationship'], "late shift schedule vs school")
+                log_interaction("assistant", ai_response)
+            
+            st.session_state.turn_count += 1
+            st.rerun()
         
         if help_button:
             log_autonomy("examples_request")
