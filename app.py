@@ -538,17 +538,64 @@ def show_context_reminder(relationship: str, power: str):
     st.markdown(f'<div class="context-reminder">{reminder_text}</div>', unsafe_allow_html=True)
 
 def display_conversation_history():
-    """Display the conversation history in chat format with better visual flow"""
-    # Create a scrollable container for the conversation
-    st.markdown('<div style="max-height: 400px; overflow-y: auto; padding: 1rem; background-color: #fafafa; border-radius: 10px; margin: 1rem 0;">', unsafe_allow_html=True)
+    """Display the conversation history like a real chat app"""
     
+    # Don't show anything if no conversation yet
+    if not st.session_state.conversation_history:
+        return
+    
+    # Create chat container with styling
+    st.markdown("""
+    <div style="
+        background: linear-gradient(to bottom, #e8eaf6 0%, #f5f5f5 100%);
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        max-height: 500px;
+        overflow-y: auto;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
+    ">
+    """, unsafe_allow_html=True)
+    
+    # Display ALL messages in sequence
     for i, msg in enumerate(st.session_state.conversation_history):
         if msg["role"] == "user":
-            st.markdown(f'<div class="chat-message-user"><strong>You:</strong><br>{msg["content"]}</div>', unsafe_allow_html=True)
+            # User message - right aligned, blue
+            st.markdown(f"""
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
+                <div style="
+                    background-color: #2196f3;
+                    color: white;
+                    padding: 0.8rem 1.2rem;
+                    border-radius: 18px 18px 4px 18px;
+                    max-width: 70%;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+                ">
+                    <div style="font-size: 0.75rem; opacity: 0.9; margin-bottom: 0.3rem;">You</div>
+                    <div>{msg["content"]}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.markdown(f'<div class="chat-message-assistant"><strong>Partner:</strong><br>{msg["content"]}</div>', unsafe_allow_html=True)
+            # AI message - left aligned, gray
+            st.markdown(f"""
+            <div style="display: flex; justify-content: flex-start; margin-bottom: 1rem;">
+                <div style="
+                    background-color: white;
+                    color: #333;
+                    padding: 0.8rem 1.2rem;
+                    border-radius: 18px 18px 18px 4px;
+                    max-width: 70%;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+                    border: 1px solid #e0e0e0;
+                ">
+                    <div style="font-size: 0.75rem; color: #666; margin-bottom: 0.3rem;">Discussion Partner</div>
+                    <div>{msg["content"]}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
     
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 def show_scaffolding(power_level: str):
     """Show scaffolding at Turn 1 of each scenario"""
@@ -898,9 +945,11 @@ def process_activity2():
             st.session_state.scaffolding_shown = True
             log_autonomy("scaffolding_turn1")
         
-        # Display conversation (THIS SHOWS THE CHAT HISTORY)
-        st.markdown("### 💬 Conversation:")
+        # Display conversation with clear header
+        st.markdown("---")
+        st.markdown("### 💬 Chat")
         display_conversation_history()
+        st.markdown("---")
         
         # Input area
         st.markdown("---")
@@ -1054,7 +1103,8 @@ def process_activity3():
             })
             log_interaction("assistant", scenario['ai_opening'])
         
-        st.markdown("### 💬 Conversation:")
+        st.markdown("---")
+        st.markdown("### 💬 Chat")
         display_conversation_history()
         
         # Show scaffolding at Turn 1
@@ -1170,7 +1220,8 @@ def process_activity3():
             })
             log_interaction("assistant", scenario['ai_opening'])
         
-        st.markdown("### 💬 Conversation:")
+        st.markdown("---")
+        st.markdown("### 💬 Chat")
         display_conversation_history()
         
         # Show scaffolding at Turn 1
