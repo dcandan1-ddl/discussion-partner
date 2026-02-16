@@ -370,6 +370,10 @@ def init_session_state():
         st.session_state.turn_count = 0
     if 'scaffolding_shown' not in st.session_state:
         st.session_state.scaffolding_shown = False
+    if 'responses_without_target' not in st.session_state:
+        st.session_state.responses_without_target = 0
+    if 'auto_scaffold_shown' not in st.session_state:
+        st.session_state.auto_scaffold_shown = False
 
 def log_interaction(role: str, content: str):
     """Log an interaction"""
@@ -388,6 +392,26 @@ def log_autonomy(action: str):
         "activity": st.session_state.current_activity,
         "action": action
     })
+
+def check_for_target_structure(user_input: str) -> bool:
+    """Check if user's input contains yes-but construction or mitigation markers"""
+    user_lower = user_input.lower()
+    
+    # Yes-but patterns
+    yes_but_patterns = [
+        "yeah but", "yes but", "yeah, but", "yes, but",
+        "i agree but", "i agree, but", "i know but", "i know, but",
+        "true but", "true, but", "i see but", "i see, but",
+        "i get that but", "i get that, but", "i hear you but", "i hear you, but",
+        "i understand but", "i understand, but", "i can see but", "i can see, but"
+    ]
+    
+    # Check for any yes-but pattern
+    for pattern in yes_but_patterns:
+        if pattern in user_lower:
+            return True
+    
+    return False
 
 def save_logs() -> str:
     """Generate downloadable JSON log"""
@@ -896,6 +920,18 @@ def process_activity2():
             st.session_state.scaffolding_shown = True
             log_autonomy("scaffolding_turn1")
         
+        # Show AUTOMATIC scaffolding after 3 responses without target structure
+        if st.session_state.auto_scaffold_shown and st.session_state.responses_without_target >= 3:
+            st.markdown("""
+            <div class="scaffolding-box">
+            <h4>💡 I noticed you might benefit from seeing how others disagree...</h4>
+            <p style="color: #666; font-size: 0.9rem;">You've been disagreeing, but I haven't seen certain patterns that make disagreements sound more natural in English.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            show_scaffolding(topic['power'])
+            # Reset the counter after showing
+            st.session_state.responses_without_target = 0
+        
         st.markdown("---")
         
         # Input area - WORKING VERSION
@@ -915,7 +951,17 @@ def process_activity2():
         
         # Handle chat input
         if user_input:
-            log_interaction("user", f"Turn {st.session_state.turn_count + 1}: {user_input}")
+            # Check if user used target structure
+            has_target = check_for_target_structure(user_input)
+            
+            if has_target:
+                # Reset counter if they used it
+                st.session_state.responses_without_target = 0
+            else:
+                # Increment counter
+                st.session_state.responses_without_target += 1
+            
+            log_interaction("user", f"Turn {st.session_state.turn_count + 1}: {user_input} [Target: {has_target}]")
             
             with st.spinner("💭 Thinking..."):
                 ai_response = call_gpt(user_input, topic['relationship'], topic['topic'])
@@ -923,6 +969,12 @@ def process_activity2():
             
             st.session_state.debate_turn += 1
             st.session_state.turn_count += 1
+            
+            # Show automatic scaffolding after 3 responses without target structure
+            if st.session_state.responses_without_target >= 3 and not st.session_state.auto_scaffold_shown:
+                st.session_state.auto_scaffold_shown = True
+                log_autonomy("auto_scaffolding_triggered")
+            
             st.rerun()
         
         if help_button:
@@ -1051,6 +1103,17 @@ def process_activity3():
             st.session_state.scaffolding_shown = True
             log_autonomy("scaffolding_turn1_scenario1")
         
+        # Show AUTOMATIC scaffolding after 3 responses without target structure
+        if st.session_state.auto_scaffold_shown and st.session_state.responses_without_target >= 3:
+            st.markdown("""
+            <div class="scaffolding-box">
+            <h4>💡 Let me show you how others express disagreement in similar situations...</h4>
+            <p style="color: #666; font-size: 0.9rem;">I noticed you've been disagreeing, but certain patterns make disagreements sound more natural.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            show_scaffolding(scenario['power'])
+            st.session_state.responses_without_target = 0
+        
         st.markdown("---")
         st.markdown("### Your Turn:")
         
@@ -1066,13 +1129,26 @@ def process_activity3():
             back_button = st.button("🔙 Try Another", key=f"back_s1_{st.session_state.turn_count}")
         
         if user_input:
-            log_interaction("user", f"Turn {st.session_state.turn_count + 1}: {user_input}")
+            # Check for target structure
+            has_target = check_for_target_structure(user_input)
+            if has_target:
+                st.session_state.responses_without_target = 0
+            else:
+                st.session_state.responses_without_target += 1
+            
+            log_interaction("user", f"Turn {st.session_state.turn_count + 1}: {user_input} [Target: {has_target}]")
             
             with st.spinner("💭 Responding..."):
                 ai_response = call_gpt(user_input, scenario['relationship'], "phone usage and health")
                 log_interaction("assistant", ai_response)
             
             st.session_state.turn_count += 1
+            
+            # Trigger auto-scaffolding
+            if st.session_state.responses_without_target >= 3 and not st.session_state.auto_scaffold_shown:
+                st.session_state.auto_scaffold_shown = True
+                log_autonomy("auto_scaffolding_triggered_s1")
+            
             st.rerun()
         
         if help_button:
@@ -1159,6 +1235,17 @@ def process_activity3():
             st.session_state.scaffolding_shown = True
             log_autonomy("scaffolding_turn1_scenario2")
         
+        # Show AUTOMATIC scaffolding after 3 responses without target structure
+        if st.session_state.auto_scaffold_shown and st.session_state.responses_without_target >= 3:
+            st.markdown("""
+            <div class="scaffolding-box">
+            <h4>💡 Let me show you how others express disagreement professionally...</h4>
+            <p style="color: #666; font-size: 0.9rem;">I see you're disagreeing, but there are patterns that make it sound more professional.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            show_scaffolding(scenario['power'])
+            st.session_state.responses_without_target = 0
+        
         st.markdown("---")
         st.markdown("### Your Turn:")
         
@@ -1174,13 +1261,26 @@ def process_activity3():
             back_button = st.button("🔙 Try Another", key=f"back_s2_{st.session_state.turn_count}")
         
         if user_input:
-            log_interaction("user", f"Turn {st.session_state.turn_count + 1}: {user_input}")
+            # Check for target structure
+            has_target = check_for_target_structure(user_input)
+            if has_target:
+                st.session_state.responses_without_target = 0
+            else:
+                st.session_state.responses_without_target += 1
+            
+            log_interaction("user", f"Turn {st.session_state.turn_count + 1}: {user_input} [Target: {has_target}]")
             
             with st.spinner("💭 Responding..."):
                 ai_response = call_gpt(user_input, scenario['relationship'], "late shift schedule vs school")
                 log_interaction("assistant", ai_response)
             
             st.session_state.turn_count += 1
+            
+            # Trigger auto-scaffolding
+            if st.session_state.responses_without_target >= 3 and not st.session_state.auto_scaffold_shown:
+                st.session_state.auto_scaffold_shown = True
+                log_autonomy("auto_scaffolding_triggered_s2")
+            
             st.rerun()
         
         if help_button:
