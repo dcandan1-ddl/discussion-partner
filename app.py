@@ -542,20 +542,16 @@ def show_context_reminder(relationship: str, power: str):
     st.markdown(f'<div class="context-reminder">{reminder_text}</div>', unsafe_allow_html=True)
 
 def display_conversation_history():
-    """Display conversation using Streamlit's native chat messages"""
+    """Display conversation using Streamlit's standard chat pattern"""
     
     if not st.session_state.conversation_history:
-        st.info("💬 Conversation will appear here...")
+        st.info("💬 The conversation will appear here")
         return
     
-    # Use Streamlit's built-in chat message display
+    # Display each message using Streamlit's chat_message
     for message in st.session_state.conversation_history:
-        if message["role"] == "user":
-            with st.chat_message("user"):
-                st.write(message["content"])
-        else:
-            with st.chat_message("assistant", avatar="🤖"):
-                st.write(message["content"])
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
 def show_scaffolding(power_level: str):
     """Show scaffolding at Turn 1 of each scenario - ONLY examples and noticing questions, NO explicit teaching"""
@@ -900,6 +896,10 @@ def process_activity2():
         # ===== CHAT DISPLAY - ALWAYS SHOW FIRST =====
         st.markdown("---")
         st.markdown("### 💬 Chat")
+        
+        # Debug info
+        st.caption(f"📊 Debug: {len(st.session_state.conversation_history)} messages in history | Turn: {st.session_state.turn_count}")
+        
         display_conversation_history()
         
         # Show scaffolding at Turn 1 (AFTER chat display, so chat is visible)
