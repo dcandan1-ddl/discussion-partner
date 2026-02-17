@@ -9,6 +9,7 @@ from openai import OpenAI
 import json
 import datetime
 import io
+import uuid
 from typing import Dict, List, Optional
 from audio_recorder_streamlit import audio_recorder
 
@@ -374,6 +375,11 @@ def init_session_state():
         st.session_state.responses_without_target = 0
     if 'auto_scaffold_shown' not in st.session_state:
         st.session_state.auto_scaffold_shown = False
+    if 'session_id' not in st.session_state:
+        # Unique ID per student session - use this to search logs in OpenAI platform
+        st.session_state.session_id = str(uuid.uuid4())
+    if 'turn_number' not in st.session_state:
+        st.session_state.turn_number = 0
 
 def log_interaction(role: str, content: str):
     """Log an interaction"""
@@ -502,12 +508,26 @@ NOW RESPOND TO WHAT THEY JUST SAID, using the appropriate target structures."""
         # Add current message
         messages.append({"role": "user", "content": user_message})
         
-        # Call API
+        # Increment turn counter
+        st.session_state.turn_number += 1
+
+        # Call API with store=True so FULL conversations appear in OpenAI platform logs
+        # Go to: platform.openai.com → Logs → Completions tab to see all conversations
         response = client.chat.completions.create(
             model=MODEL,
             messages=messages,
             temperature=TEMPERATURE,
-            max_tokens=MAX_TOKENS
+            max_tokens=MAX_TOKENS,
+            store=True,                          # ← THIS makes conversations appear in OpenAI logs
+            metadata={
+                "student_name":  str(st.session_state.student_name or "unknown"),
+                "session_id":    str(st.session_state.session_id),
+                "activity":      str(st.session_state.current_activity or "welcome"),
+                "state":         str(st.session_state.current_state or "unknown"),
+                "turn_number":   str(st.session_state.turn_number),
+                "relationship":  str(relationship),
+                "timestamp":     datetime.datetime.now().isoformat()
+            }
         )
         
         ai_response = response.choices[0].message.content.strip()
@@ -1410,6 +1430,19 @@ def main():
         st.markdown(f"Activity: {st.session_state.current_activity or 'Welcome'}")
         st.markdown(f"State: {st.session_state.current_state}")
         st.markdown(f"Turn Count: {st.session_state.turn_count}")
+        st.markdown(f"API Turns Logged: {st.session_state.turn_number}")
+
+        # ── OpenAI Log Tracking ──────────────────────────────────────────────
+        st.markdown("---")
+        st.markdown("**🔍 OpenAI Log ID (for research)**")
+        st.info(
+            f"**Session ID:**\n\n`{st.session_state.session_id}`\n\n"
+            "Copy this ID. After the session go to:\n\n"
+            "**platform.openai.com → Logs → Completions**\n\n"
+            "Filter by Metadata → session_id = this value\n\n"
+            "You will see every student message + AI response."
+        )
+        # ─────────────────────────────────────────────────────────────────────
         
         if st.checkbox("Show conversation history"):
             st.json(st.session_state.conversation_history)
